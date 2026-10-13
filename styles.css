@@ -60,10 +60,7 @@ main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:14
 
 /* ---------- Cover & envelope ---------- */
 #welcome{text-align:center}
-.overline{margin:4px 0 0;font:italic 1.05rem var(--serif);color:var(--cream-soft)}
-.cover-title{margin:2px 0 0;font:500 clamp(2.5rem,12vw,4.4rem)/1 var(--serif);color:var(--cream);letter-spacing:-.005em;text-shadow:0 2px 12px rgba(0,0,0,.45)}
-.cover-title span{font-style:italic;font-weight:400;color:var(--gold)}
-.cover-sub{margin:8px auto 0;max-width:26em;font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-soft)}
+.cover-line{margin:0 auto;max-width:12em;text-wrap:balance;font:400 clamp(2.3rem,10.5vw,3.6rem)/1.15 var(--script);color:var(--cream);letter-spacing:.01em;text-shadow:0 2px 14px rgba(0,0,0,.55),0 0 1px rgba(226,199,143,.4)}
 
 .envelope-stage{padding-top:min(37vw,160px);margin:4px auto 0;width:min(100%,420px)}
 .envelope{position:relative;width:100%;aspect-ratio:1.58}
@@ -222,7 +219,7 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
 .invite-contrib small{color:var(--ink-faint);font-style:italic;font-size:.88rem}
 .invite-links{margin:12px 0 0;display:flex;justify-content:center;gap:10px;font-size:.92rem}
 .invite-links a{color:var(--oxblood);text-decoration:none;border-bottom:1px solid var(--rule);padding:4px 0}
-.invite-motto{margin:14px 0 16px;font-size:.64rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint)}
+.invite-motto{margin:14px 0 14px;font-size:.64rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-faint)}
 
 /* ---------- Larger screens ---------- */
 @media(min-width:600px){
@@ -230,7 +227,7 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
   .app-shell{max-width:680px;padding:18px 28px 22px}
   .brand strong{font-size:1.1rem;letter-spacing:.05em}
   .brand img{width:38px;height:38px}
-  .cover-sub{max-width:none;font-size:.76rem}
+  .cover-line{max-width:none}
   .paper-card{padding:30px 32px 26px}
   .payees{grid-template-columns:1fr 1fr}
   .price strong{font-size:2.7rem}
@@ -276,3 +273,4 @@ textarea{width:100%;min-height:84px;padding:10px 12px;background:rgba(255,251,24
 textarea:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgba(109,22,32,.18)}
 #reasonWrap .field-help{color:var(--oxblood);font-style:italic}
 .form-field>label small{font-weight:400;color:var(--ink-faint)}
+.invite-inside{margin:0 auto 14px;max-width:24em;padding:10px 12px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);font:italic 1rem/1.4 var(--serif);color:var(--oxblood)}

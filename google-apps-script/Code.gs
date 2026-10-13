@@ -1,13 +1,12 @@
 /**
  * Panaghimamat 2026 · RSVP backend (Google Apps Script)
  *
- * Setup:
- *   1. Paste this file into the Apps Script project and save.
- *   2. Run setup() once (it tidies the Sheet and creates the tabs below).
- *   3. Deploy > Manage deployments > Edit > Version: New version > Deploy.
+ * Update steps:
+ *   1. Paste this whole file into the Apps Script project and save.
+ *   2. Deploy > Manage deployments > Edit > Version: New version > Deploy.
  *
- * Tabs:
- *   Responses     one row per reply (filled automatically)
+ * Tabs (already formatted in the SSC sheet; setup() rebuilds them only if missing):
+ *   Responses     one row per reply, filled automatically from row 6
  *   Faculty List  officers type faculty full names in column A
  */
 const SHEET_TITLE = 'Panaghimamat 2026 · RSVP';
@@ -16,8 +15,9 @@ const FACULTY = 'Faculty List';
 const HEADERS = ['Date', 'Name', 'Type', 'Attending', 'Contribution', 'Payment', 'Screenshot', 'Reason (if not attending)'];
 const FEES = { Student: 550, Faculty: 400 };
 const PAYMENT_OPTIONS = ['Cash · not yet paid', 'GCash · check screenshot', 'GoTyme · check screenshot', 'Paid ✓', 'Not attending'];
+const WINE = '#5c121c', CREAM = '#f6ead6', PAPER = '#fffaf2', PAPER2 = '#f6ecdc', GOLD = '#9b7536';
 
-/* ---------- One-time setup ---------- */
+/* ---------- One-time setup (only creates what is missing) ---------- */
 function setup() {
   const props = PropertiesService.getScriptProperties();
   let book;
@@ -25,34 +25,50 @@ function setup() {
   if (id) book = SpreadsheetApp.openById(id);
   else { book = SpreadsheetApp.create(SHEET_TITLE); props.setProperty('SHEET_ID', book.getId()); }
   book.setSpreadsheetTimeZone('Asia/Manila');
-
-  const responses = book.getSheetByName(RESPONSES) || book.insertSheet(RESPONSES, 0);
-  responses.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS])
-    .setFontWeight('bold').setBackground('#5c121c').setFontColor('#f6ead6');
-  responses.setFrozenRows(1);
-  [150, 220, 80, 90, 100, 190, 110, 280].forEach((w, i) => responses.setColumnWidth(i + 1, w));
-  responses.getRange('E2:E').setNumberFormat('"₱"#,##0');
-  responses.getRange('F2:F').setDataValidation(
-    SpreadsheetApp.newDataValidation().requireValueInList(PAYMENT_OPTIONS, true).setAllowInvalid(true).build());
-  responses.setConditionalFormatRules([
-    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Paid ✓').setBackground('#d9ead3').setRanges([responses.getRange('F2:F')]).build()
-  ]);
-
+  if (!book.getSheetByName(RESPONSES)) buildResponses_(book.insertSheet(RESPONSES, 0));
   facultySheet_(book);
-
-  // Remove the old, more complicated tabs from earlier versions (only if they hold no replies).
-  ['Dashboard', 'SSC Guide', 'Students', 'Faculty'].forEach((name) => {
-    const old = book.getSheetByName(name);
-    if (!old) return;
-    const isRecordTab = name === 'Students' || name === 'Faculty';
-    const hasReplies = isRecordTab && old.getRange('C2:C').getValues().some(([v]) => String(v).trim());
-    if (!hasReplies) book.deleteSheet(old);
-  });
-
+  const blank = book.getSheetByName('Sheet1');
+  if (blank && book.getSheets().length > 1 && blank.getLastRow() === 0) book.deleteSheet(blank);
   if (!props.getProperty('PROOF_FOLDER_ID')) {
     props.setProperty('PROOF_FOLDER_ID', DriveApp.createFolder('Panaghimamat 2026 · Payment screenshots').getId());
   }
   Logger.log('Sheet ready: ' + book.getUrl());
+}
+
+function buildResponses_(sh) {
+  sh.setHiddenGridlines(true).setTabColor(WINE);
+  sh.getRange('A1:H1000').setFontFamily('Lora').setFontSize(10).setVerticalAlignment('middle');
+  sh.getRange('A1:H1').merge().setValue('Panaghimamat 2026 · RSVP & Contributions')
+    .setBackground(WINE).setFontColor(CREAM).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
+  sh.getRange('A2:H3').setBackground(PAPER2).setHorizontalAlignment('center').setFontWeight('bold');
+  sh.getRange('A2:H2').setValues([['REPLIES', 'ATTENDING', 'NOT ATTENDING', 'STUDENTS', 'FACULTY', 'EXPECTED', 'COLLECTED', 'TO COLLECT']])
+    .setFontSize(8).setFontColor(GOLD);
+  sh.getRange('A3:H3').setFormulas([['=COUNTA(B6:B)', '=COUNTIF(D6:D,"Yes")', '=COUNTIF(D6:D,"No")', '=COUNTIF(C6:C,"Student")',
+    '=COUNTIF(C6:C,"Faculty")', '=SUM(E6:E)', '=SUMIF(F6:F,"Paid ✓",E6:E)', '=F3-G3']]).setFontSize(15).setFontColor(WINE);
+  sh.getRange('F3:H3').setNumberFormat('"₱"#,##0');
+  sh.getRange('A5:H5').setValues([HEADERS]).setFontWeight('bold').setHorizontalAlignment('center');
+  sh.getRange('A5:H1000').applyRowBanding(SpreadsheetApp.BandingTheme.BROWN, true, false)
+    .setHeaderRowColor(WINE).setFirstRowColor(PAPER).setSecondRowColor(PAPER2);
+  sh.getRange('A5:H5').setFontColor(CREAM);
+  sh.getRange('A6:A').setNumberFormat('mmm d, h:mm am/pm');
+  sh.getRange('B6:B').setFontWeight('bold');
+  sh.getRange('C6:G').setHorizontalAlignment('center');
+  sh.getRange('E6:E').setNumberFormat('"₱"#,##0');
+  sh.getRange('H6:H').setWrap(true);
+  [140, 220, 105, 105, 110, 200, 110, 300].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  sh.setRowHeight(1, 46); sh.setRowHeight(3, 38); sh.setRowHeight(4, 10); sh.setRowHeights(6, 995, 30);
+  sh.setFrozenRows(5);
+  const pay = sh.getRange('F6:F');
+  pay.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(PAYMENT_OPTIONS, true).setAllowInvalid(true).build());
+  const rule = (range) => SpreadsheetApp.newConditionalFormatRule().setRanges([range]);
+  sh.setConditionalFormatRules([
+    rule(pay).whenTextEqualTo('Paid ✓').setBackground('#d9ead3').setFontColor('#2f5a2e').setBold(true).build(),
+    rule(pay).whenTextContains('not yet paid').setBackground('#fbe8c8').setFontColor('#7a4a0c').build(),
+    rule(pay).whenTextContains('check screenshot').setBackground('#e1e8f3').setFontColor('#28466e').build(),
+    rule(pay).whenTextEqualTo('Not attending').setFontColor('#9a8f84').build(),
+    rule(sh.getRange('D6:D')).whenTextEqualTo('Yes').setFontColor('#2f5a2e').setBold(true).build(),
+    rule(sh.getRange('D6:D')).whenTextEqualTo('No').setFontColor('#9a2a2a').setBold(true).build()
+  ]);
 }
 
 function book_() {
@@ -61,9 +77,14 @@ function book_() {
 function facultySheet_(book) {
   let sheet = book.getSheetByName(FACULTY);
   if (!sheet) {
-    sheet = book.insertSheet(FACULTY);
-    sheet.getRange('A1').setValue('Faculty full name').setFontWeight('bold').setBackground('#5c121c').setFontColor('#f6ead6');
-    sheet.setColumnWidth(1, 320);
+    sheet = book.insertSheet(FACULTY).setHiddenGridlines(true).setTabColor(GOLD);
+    sheet.getRange('A1:B300').setFontFamily('Lora').setFontSize(11).setVerticalAlignment('middle');
+    sheet.getRange('A1:B1').setValues([['Faculty full name', 'How to use']]).setBackground(WINE).setFontColor(CREAM).setFontWeight('bold');
+    sheet.getRange('B2:B3').setValues([['Type one faculty full name per row in column A (first and last name). Titles like Ma\'am or Dr. are optional.'],
+      ['New names work on the website within a minute.']]).setFontSize(9).setFontStyle('italic').setFontColor('#86705e').setWrap(true);
+    sheet.getRange('A1:A300').applyRowBanding(SpreadsheetApp.BandingTheme.BROWN, true, false)
+      .setHeaderRowColor(WINE).setFirstRowColor(PAPER).setSecondRowColor(PAPER2);
+    sheet.setColumnWidth(1, 320); sheet.setColumnWidth(2, 360);
     sheet.setFrozenRows(1);
   }
   return sheet;
@@ -149,7 +170,7 @@ function save_(d) {
     const online = method === 'GCash' || method === 'Bank Transfer';
     if (!online && method !== 'Cash') fail_('Please choose how you will pay.');
     payment = method === 'Cash' ? 'Cash · not yet paid' : method === 'GCash' ? 'GCash · check screenshot' : 'GoTyme · check screenshot';
-    if (online) screenshot = saveScreenshot_(d.proof, name);
+    if (online) screenshot = '=HYPERLINK("' + saveScreenshot_(d.proof, name) + '","View")';
   }
 
   const safe = (s) => (/^[=+\-@]/.test(s) ? "'" + s : s); // keep typed text from acting as a formula
