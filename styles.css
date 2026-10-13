@@ -24,7 +24,7 @@
 /* === Burgundy invitation theme sync update === */
 :root{--forest:#4f0d16;--forest-2:#220609;--sage:#8d6a63;--cream:#f4ead8;--paper:#efe0c7;--gold:#d1a766;--pale-gold:#ebd5af;--line:rgba(220,178,111,.40);--muted:#eadfc7;--ink:#40231f;--red:#8c2525}
 body{background:#160305;color:var(--cream)}
-.ambience{background:linear-gradient(180deg,rgba(25,3,6,.90),rgba(25,3,6,.94)),radial-gradient(ellipse at top,#5b0917 0,transparent 55%),url('assets/hero-burgundy.jpg') center top/cover no-repeat fixed}
+.ambience{background:linear-gradient(180deg,rgba(25,3,6,.90),rgba(25,3,6,.94)),radial-gradient(ellipse at top,#5b0917 0,transparent 55%),url('assets/hero-burgundy.png') center top/cover no-repeat fixed}
 .ambience:after{opacity:.09}
 .ambience-ring{border-color:rgba(219,172,95,.12)}
 .app-shell{max-width:1100px}
@@ -46,12 +46,7 @@ body{background:#160305;color:var(--cream)}
 .hero-step .display-title{color:#561420;text-shadow:0 1px 0 rgba(255,255,255,.2)}
 .hero-step .display-title i{color:#8d4c53}
 .hero-step .cover-subhead{margin-top:12px;color:#9b6d43;font-size:.66rem;letter-spacing:.28em;line-height:1.7}
-.hero-host{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;margin:24px auto 18px;max-width:560px;padding:14px 18px;border-top:1px solid rgba(120,74,54,.22);border-bottom:1px solid rgba(120,74,54,.22)}
-.hero-host-copy{display:flex;flex-direction:column;align-items:flex-end;text-align:right}
-.hero-host-copy span{font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;color:#8b6448}
-.hero-host-copy strong{font:600 1.2rem/1.1 var(--serif);letter-spacing:.02em;color:#5b1520}
-.hero-host img{width:78px;height:78px;object-fit:cover;border-radius:50%;padding:3px;background:#fff;border:1px solid rgba(209,167,102,.45);box-shadow:0 8px 18px rgba(0,0,0,.16)}
-.hero-step .intro-copy{color:#5f4038;max-width:560px;font-size:1.36rem;margin-top:12px}
+.hero-step .intro-copy{color:#5f4038;max-width:560px;font-size:1.36rem;margin:18px auto 12px}
 .hero-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:620px;margin:24px auto 28px}
 .hero-meta div{padding:14px 10px;background:rgba(90,20,28,.06);border:1px solid rgba(122,74,55,.16);border-radius:16px}
 .hero-meta span{display:block;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:#8b6448;margin-bottom:6px}
@@ -67,14 +62,14 @@ body{background:#160305;color:var(--cream)}
 .nav-btn,.secondary-btn{border-radius:999px}
 .primary-btn,.preview-ribbon,.recipient-info{border-radius:18px}
 .recipient-info{background:rgba(255,242,227,.06);border-color:rgba(212,166,98,.42)}
-@media(max-width:820px){.hero-meta{grid-template-columns:1fr}.masthead{justify-content:center}.brand{width:100%;justify-content:center}.masthead-right{margin-left:0}.ssc-chip{width:100%;justify-content:center;border-radius:20px}.hero-host-copy{align-items:center;text-align:center}}
-@media(max-width:580px){.hero-paper{padding:28px 18px 24px;border-radius:22px}.hero-step .display-title{font-size:clamp(3rem,13vw,4.7rem)}.hero-step .intro-copy{font-size:1.12rem}.hero-host{padding:12px 8px;gap:10px}.hero-host-copy strong{font-size:1rem}.hero-host img{width:66px;height:66px}.hero-step .cover-subhead{font-size:.56rem;letter-spacing:.18em}.hero-step .cover-bottom{line-height:1.8}.page-eyebrow{gap:10px;flex-wrap:wrap;justify-content:center}.contribution-grid,.choice-grid{grid-template-columns:1fr}.ssc-chip strong{font-size:.66rem}.ssc-chip small{letter-spacing:.13em}.masthead{padding-top:6px}}
+@media(max-width:820px){.hero-meta{grid-template-columns:1fr}.masthead{justify-content:center}.brand{width:100%;justify-content:center}.masthead-right{margin-left:0}.ssc-chip{width:100%;justify-content:center;border-radius:20px}}
+@media(max-width:580px){.hero-paper{padding:28px 18px 24px;border-radius:22px}.hero-step .display-title{font-size:clamp(3rem,13vw,4.7rem)}.hero-step .intro-copy{font-size:1.12rem}.hero-step .cover-subhead{font-size:.56rem;letter-spacing:.18em}.hero-step .cover-bottom{line-height:1.8}.page-eyebrow{gap:10px;flex-wrap:wrap;justify-content:center}.contribution-grid,.choice-grid{grid-template-columns:1fr}.ssc-chip strong{font-size:.66rem}.ssc-chip small{letter-spacing:.13em}.masthead{padding-top:6px}}
 
 /* Photographic burgundy styling: retain the supplied photo instead of hiding it. */
 .ambience{
   background:
     linear-gradient(180deg,rgba(24,2,5,.40),rgba(24,2,5,.50)),
-    url('assets/hero-burgundy.jpg') center 46% / cover no-repeat;
+    url('assets/hero-burgundy.png') center 46% / cover no-repeat;
 }
 .step:not(.hero-step){
   background:linear-gradient(160deg,rgba(37,4,9,.92),rgba(53,8,16,.90));
@@ -87,7 +82,7 @@ body{background:#160305;color:var(--cream)}
 }
 .step.hero-step{padding-block:24px}
 .hero-paper{animation:parchmentAppear .85s cubic-bezier(.22,.8,.2,1) both}
-.ssc-chip img,.hero-host img{object-fit:contain}
+.ssc-chip img{object-fit:contain}
 @keyframes parchmentAppear{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
 @media(max-width:680px){
   .ambience{background-position:center top}
@@ -98,3 +93,30 @@ body{background:#160305;color:var(--cream)}
   .masthead{gap:10px}
 }
 @media(prefers-reduced-motion:reduce){.hero-paper{animation:none}}
+
+
+/* === October 23 envelope interaction + natural burgundy background === */
+.ambience{background:linear-gradient(180deg,rgba(22,3,5,.78),rgba(22,3,5,.88)),radial-gradient(circle at top,rgba(109,21,31,.38),transparent 40%),url('assets/hero-burgundy-desktop.png') center top/cover no-repeat fixed}
+@media (max-width:700px){.ambience{background:linear-gradient(180deg,rgba(22,3,5,.74),rgba(22,3,5,.90)),url('assets/hero-burgundy-mobile.png') center top/cover no-repeat fixed}}
+.hero-paper.vintage-hero{max-width:880px;padding:clamp(26px,4vw,42px) clamp(18px,4vw,34px) 28px;background:linear-gradient(180deg,rgba(238,222,194,.96),rgba(235,218,190,.95));}
+.hero-instruction{max-width:620px;font-size:1.06rem;margin:14px auto 0;color:#61433d}
+.envelope-stage{margin:18px auto 10px;display:flex;justify-content:center}
+.invitation-envelope{position:relative;width:min(100%,460px);height:320px;filter:drop-shadow(0 20px 35px rgba(48,8,12,.22));}
+.invitation-envelope .envelope-back{position:absolute;inset:auto 0 0 0;height:230px;background:linear-gradient(180deg,#f0e0c3,#e2c8a4);border-radius:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.invitation-envelope .envelope-front{position:absolute;inset:auto 0 0 0;height:180px;background:linear-gradient(180deg,#d6b185,#c79763);clip-path:polygon(0 12%,50% 68%,100% 12%,100% 100%,0 100%);border-radius:0 0 18px 18px;z-index:4}
+.invitation-envelope .envelope-flap{position:absolute;left:0;right:0;bottom:118px;height:132px;background:linear-gradient(180deg,#ead2ae,#d8b48a);clip-path:polygon(0 0,50% 82%,100% 0,100% 100%,0 100%);transform-origin:50% 0;transform:rotateX(0deg);transition:transform .75s cubic-bezier(.2,.8,.2,1);z-index:5;backface-visibility:hidden}
+.invitation-envelope .wax-seal{position:absolute;left:50%;bottom:154px;transform:translateX(-50%);width:62px;height:62px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#a11f2d,#6d0d18 70%);color:#f4e8d3;display:grid;place-items:center;font:700 .9rem/1 var(--sans);letter-spacing:.2em;z-index:6;box-shadow:0 10px 20px rgba(74,9,18,.35)}
+.invitation-envelope .envelope-letter{position:absolute;left:8%;right:8%;bottom:58px;height:230px;padding:0;transform:translateY(104px);transition:transform .75s cubic-bezier(.2,.8,.2,1);z-index:3}
+.invitation-envelope.is-open .envelope-letter{transform:translateY(-10px)}
+.invitation-envelope.is-open .envelope-flap{transform:rotateX(-180deg)}
+.invitation-letter{height:100%;padding:18px 18px 16px;background:linear-gradient(180deg,#f8efdf,#efe0c4);border:1px solid rgba(140,93,60,.22);border-radius:14px;box-shadow:0 8px 18px rgba(0,0,0,.12);text-align:center;color:#562728;display:flex;flex-direction:column;justify-content:flex-start;gap:8px}
+.invitation-letter .letter-kicker{margin:0;font-size:.58rem;letter-spacing:.26em;text-transform:uppercase;color:#8b6649}
+.invitation-letter h2{margin:0;font:600 1.38rem/1.08 var(--serif);color:#631927}
+.invitation-letter .letter-details{display:grid;grid-template-columns:1fr;gap:8px;margin-top:4px}
+.invitation-letter .letter-details div{padding:8px 10px;border:1px solid rgba(123,86,63,.18);background:rgba(129,69,57,.05);border-radius:10px}
+.invitation-letter .letter-details span{display:block;font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:#8a6753;margin-bottom:2px}
+.invitation-letter .letter-details strong{font:600 .96rem/1.2 var(--serif);color:#5c1823}
+.invitation-letter .letter-note{margin:0;font-size:.88rem;line-height:1.45;color:#6b4c45}
+.online-instructions strong{display:block;font:600 1.1rem/1.2 var(--serif);margin-bottom:6px;color:#5a1621}
+.payment-warning{font-size:.82rem;line-height:1.5}
+@media (max-width:580px){.invitation-envelope{height:300px;width:min(100%,350px)}.invitation-envelope .envelope-back{height:212px}.invitation-envelope .envelope-front{height:164px}.invitation-envelope .envelope-flap{bottom:105px;height:122px}.invitation-envelope .wax-seal{bottom:139px;width:56px;height:56px}.invitation-envelope .envelope-letter{left:7%;right:7%;height:214px;bottom:52px;transform:translateY(96px)}.invitation-letter{padding:14px 14px 12px}.invitation-letter h2{font-size:1.16rem}.invitation-letter .letter-note{font-size:.77rem}.hero-instruction{font-size:.95rem}.hero-paper.vintage-hero{padding-bottom:22px}}

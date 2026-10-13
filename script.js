@@ -9,10 +9,19 @@
   const attendanceInputs = [...document.querySelectorAll('[name="attendance"]')];
   const methodInputs = [...document.querySelectorAll('[name="paymentMethod"]')];
   let step = 0;
+  let invitationOpened = false;
   let pending = null;
   const feeByRole = { Student: 550, Faculty: 400 };
 
   function selected(name) { return document.querySelector(`[name="${name}"]:checked`)?.value || ''; }
+  function setInvitationState(open) {
+    const env = $('invitationEnvelope');
+    const btn = $('openInvitation');
+    invitationOpened = open;
+    if (env) env.classList.toggle('is-open', open);
+    if (btn) btn.innerHTML = open ? 'Continue to the details <span aria-hidden="true">↗</span>' : 'Open the envelope <span aria-hidden="true">↗</span>';
+  }
+
   function showStep(next) {
     if (next < 0 || next > 4) return;
     step = next;
@@ -29,9 +38,13 @@
     $('nextBtn').hidden = next === 0 || next >= 3;
     document.querySelector('.app-shell').scrollIntoView({ behavior: 'instant' });
     $('mainContent').focus({ preventScroll: true });
+    if (next === 0) setInvitationState(false);
     if (next === 3) $('fullName').focus({ preventScroll: true });
   }
-  $('openInvitation').addEventListener('click', () => showStep(1));
+  $('openInvitation').addEventListener('click', () => {
+    if (!invitationOpened) setInvitationState(true);
+    else showStep(1);
+  });
   $('nextBtn').addEventListener('click', () => showStep(step + 1));
   $('backBtn').addEventListener('click', () => showStep(step - 1));
   $('brandHome').addEventListener('click', (event) => {event.preventDefault();showStep(0)});
@@ -54,7 +67,6 @@
     const method = selected('paymentMethod');
     const online = attending && (method === 'GCash' || method === 'Bank Transfer');
     $('onlineDetail').hidden = !online;
-    $('transactionRef').required = online && !testMode;
     $('proofImage').required = online && !testMode;
     if (online) {
       const account = method === 'GCash' ? config.gcash : config.bank;
@@ -64,6 +76,7 @@
       heading.textContent = `${method} · ₱${feeByRole[role]}`;
       info.append(heading);
       if (method === 'GCash' && account?.displayName) addInfo(info, `Recipient: ${account.displayName}`);
+      addInfo(info, 'Payment contact: Anthony Sedoro, SSC President. You may also coordinate through the SSC Treasurer.');
       if (method === 'Bank Transfer') {
         if (account?.bankName) addInfo(info, `Bank: ${account.bankName}`);
         if (account?.accountName) addInfo(info, `Account name: ${account.accountName}`);
@@ -82,7 +95,7 @@
         info.append(img);
       }
       addInfo(info, testMode
-        ? 'DEMO ONLY — These original QR codes are scannable. Do not send money. You can use a fake reference and sample screenshot to test the form.'
+        ? 'DEMO ONLY — These original QR codes are scannable. Do not send money. You may attach a sample screenshot to test the form.'
         : 'Save your transfer screenshot. Your acknowledgment remains pending until verified.');
     }
   }
@@ -146,12 +159,11 @@
     if ((method === 'GCash' && !usableAccount('gcash')) || (method === 'Bank Transfer' && !usableAccount('bank'))) return error('This online payment option is not available yet.');
     if (!$('consent').checked) return error('Please acknowledge the information notice to continue.');
     const isOnline = method === 'GCash' || method === 'Bank Transfer';
-    if (isOnline && !preview && !$('transactionRef').value.trim()) return error('Enter your payment transaction reference.');
     let proof = null;
     if (isOnline && (!preview || $('proofImage').files.length)) {
       try { proof = await imageProof($('proofImage')); } catch (err) { return error(err.message); }
     }
-    const payload = { nonce:nonce(), fullName,role,affiliation,attendance,paymentMethod:method,amount:attendance==='Attending'?feeByRole[role]:0,transactionRef:isOnline?$('transactionRef').value.trim():'',proof,website:'',clientDate:new Date().toISOString() };
+    const payload = { nonce:nonce(), fullName,role,affiliation,attendance,paymentMethod:method,amount:attendance==='Attending'?feeByRole[role]:0,proof,website:'',clientDate:new Date().toISOString() };
     if (preview) return showAcknowledgment({...payload,receiptId:`DEMO-${Date.now().toString(36).toUpperCase()}`,saved:false});
     $('submitBtn').disabled = true;
     $('submitBtn').textContent = 'Submitting…';
@@ -191,7 +203,6 @@
     if(attending)details.push(['Contribution',`₱${d.amount}`]);
     if(pendingPayment)details.push(['Payment status','Pending verification']);
     else if(attending)details.push(['Payment status','Cash — unpaid / pending']);
-    if(d.transactionRef)details.push(['Transfer reference',d.transactionRef]);
     $('receiptDetails').replaceChildren();
     details.forEach(([label,value])=>{const wrap=document.createElement('div');const dt=document.createElement('dt');dt.textContent=label;const dd=document.createElement('dd');dd.textContent=String(value);wrap.append(dt,dd);$('receiptDetails').append(wrap)});
     $('receiptFooter').textContent=!d.saved ? 'SAMPLE ONLY · Not saved or validated.' : 'SSC event acknowledgment only · NOT an official proof or receipt of payment. Transfers require manual verification.';

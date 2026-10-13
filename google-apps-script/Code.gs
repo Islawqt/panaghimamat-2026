@@ -85,7 +85,7 @@ function styleDashboard_(sheet) {
     .setBackground('#173C30').setFontColor('#F7F2E7').setFontFamily('Georgia')
     .setFontSize(24).setFontWeight('bold').setVerticalAlignment('middle');
   sheet.setRowHeight(2,35);sheet.setRowHeight(3,35);
-  sheet.getRange('B4:F4').merge().setValue('STI College Valencia  •  Teachers’ Day & Acquaintance Celebration  •  22 OCT 2026')
+  sheet.getRange('B4:F4').merge().setValue('STI College Valencia  •  Teachers’ Day & Acquaintance Celebration  •  23 OCT 2026')
     .setBackground('#E9E5D8').setFontColor('#29493A').setFontSize(10);
   sheet.getRange('B6:F6').setValues([['METRIC','STUDENTS','FACULTY','COMBINED','']]);
   sheet.getRange('B6:F6').setBackground('#B89A63').setFontColor('#FFFFFF').setFontWeight('bold');
@@ -128,7 +128,7 @@ function styleGuide_(sheet) {
     ['Payment screenshots','Stored in a PRIVATE Google Drive folder. Do not publicly share URLs or change the folder’s visibility.'],
     ['Privacy','Limit access to authorized SSC staff. Use records only for event coordination, collection tracking and verification.'],
     ['Editing','Do not modify the submitted response ID, nonce, screenshot URL or personally identifiable data unless correcting an error.'],
-    ['Event','Thursday, October 22, 2026 · Regidor Country Homes · time to be announced.'],
+    ['Event','Friday, October 23, 2026 · Regidor Country Homes · 5:30 PM to 10:00 PM.'],
     ['Contribution period','October 7–19, 2026 · SSC Treasurer Ms. Jhodel Aranas.'],
     ['Publisher','Owned and administered by the SSC via the Google account that deploys this Apps Script.']
   ];
@@ -170,14 +170,13 @@ function saveSubmission_(d) {
   const affiliation = text(d.affiliation,100);
   const attendance = text(d.attendance,30);
   const method = text(d.paymentMethod,30);
-  const transactionRef = text(d.transactionRef,80);
+  const transactionRef = '';
   if (fullName.length < 2 || !affiliation || !['Student','Faculty'].includes(role) ||
       !['Attending','Not attending'].includes(attendance)) throw Error('Invalid response');
   const attending = attendance === 'Attending';
   const allowedMethods = ['Cash','GCash','Bank Transfer'];
   if ((attending && !allowedMethods.includes(method)) || (!attending && method !== 'Not applicable')) throw Error('Invalid payment');
   const online = attending && ['GCash','Bank Transfer'].includes(method);
-  if (online && !transactionRef) throw Error('Missing transfer reference');
   if (!!d.proof !== online) throw Error('Missing or unexpected proof');
   // Recalculate the fee on the server. Never trust a submitted amount.
   const amount = attending ? EVENT.amount[role] : 0;
