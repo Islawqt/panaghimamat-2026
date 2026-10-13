@@ -125,7 +125,7 @@
               <span>Cash, GCash or GoTyme</span>
             </div>
           </div>
-          <p class="payee-note">Aside from the Treasurer, you may also pay <strong>directly to our SSC President, Anthony Sedoro</strong>. He is the owner of the GCash and GoTyme accounts and QR codes below.</p>
+          <p class="payee-note">Aside from the Treasurer, you may also pay <strong>directly to our SSC President, Anthony Sedoro</strong>. She is the owner of the GCash and GoTyme accounts and QR codes below.</p>
         </div>
 
         <div class="paper paper-card qr-card">
@@ -168,9 +168,9 @@
           </fieldset>
 
           <div class="faculty-check" id="facultyCheck" hidden>
-            <p class="faculty-title">Faculty verification <span aria-hidden="true">*</span></p>
-            <div class="code-row"><p class="faculty-name" id="facultyName">Type your full name above</p><button type="button" class="verify-btn" id="verifyFaculty">Verify</button></div>
-            <small class="field-help" id="facultyStatus" role="status">There is no log-in, so your name is checked against the SSC’s faculty list before the ₱400 rate applies.</small>
+            <p class="faculty-title">Faculty verification</p>
+            <p class="field-help" id="facultyStatus" role="status">There is no log-in, so we check your full name against the faculty list kept by the SSC officers. Type your name above, then tap verify.</p>
+            <button type="button" class="verify-btn" id="verifyFaculty">Verify my name</button>
           </div>
 
           <div class="form-field" id="affiliationWrap" hidden><label for="affiliation" id="affiliationLabel">Program / Year / Section <span aria-hidden="true">*</span></label><input id="affiliation" name="affiliation" type="text" maxlength="100" placeholder="e.g. BSIS 4A"></div>
@@ -178,6 +178,12 @@
           <fieldset><legend>Attendance <span aria-hidden="true">*</span></legend>
             <div class="choice-grid"><label class="choice"><input type="radio" name="attendance" value="Attending" required><span>Happily attending</span></label><label class="choice"><input type="radio" name="attendance" value="Not attending" required><span>Unable to attend</span></label></div>
           </fieldset>
+
+          <div class="form-field" id="reasonWrap" hidden>
+            <label for="reason">Reason for not attending <span aria-hidden="true">*</span></label>
+            <textarea id="reason" name="reason" rows="3" maxlength="300" placeholder="Briefly tell us why"></textarea>
+            <small class="field-help">Reasons are strictly checked by the SSC officers.</small>
+          </div>
 
           <div id="paymentFields" hidden>
             <div class="fee-line"><span>Your contribution</span><b id="feeValue">₱—</b></div>

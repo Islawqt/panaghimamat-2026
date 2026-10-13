@@ -187,52 +187,49 @@
   const preview = testMode || !configured;
   function selected(name) { return document.querySelector(`[name="${name}"]:checked`)?.value || ''; }
   let facultyVerified = false;
+  let verifiedName = '';
+  const nameKey = (v) => v.trim().toLowerCase().replace(/\s+/g, ' ');
   function setFacultyState(state, message) {
     const box = $('facultyCheck');
     facultyVerified = state === 'ok';
     box.classList.toggle('is-verified', state === 'ok');
     box.classList.toggle('is-error', state === 'error');
-    $('verifyFaculty').textContent = state === 'ok' ? 'Verified ✓' : state === 'busy' ? 'Checking…' : 'Verify';
+    $('verifyFaculty').textContent = state === 'ok' ? 'Verified ✓' : state === 'busy' ? 'Checking…' : 'Verify my name';
     $('verifyFaculty').disabled = state === 'busy';
     if (message) $('facultyStatus').textContent = message;
   }
   async function verifyFaculty() {
     const name = $('fullName').value.trim().replace(/\s+/g, ' ');
-    if (name.split(' ').length < 2) { $('fullName').focus(); return setFacultyState('error', 'Type your full name (first and last name) in the field above first.'); }
+    if (name.split(' ').length < 2) { $('fullName').focus(); return setFacultyState('error', 'Please type your full name (first and last name) in the name field first.'); }
     if (!configured) return setFacultyState('error', 'Verification is offline right now. Please contact the SSC.');
     setFacultyState('busy');
     try {
       const res = await fetch(`${config.sheetWebAppUrl}?action=verifyFaculty&name=${encodeURIComponent(name)}`, { method: 'GET', credentials: 'omit' });
       const data = await res.json();
-      if (data && data.ok === true) setFacultyState('ok', 'Verified on the SSC faculty list. The ₱400 faculty rate applies.');
-      else setFacultyState('error', (data && data.message) || 'Your name is not on the SSC faculty list yet.');
+      if (data && data.ok === true) { verifiedName = nameKey(name); setFacultyState('ok', 'Verified on the faculty list. The faculty rate of ₱400 applies.'); }
+      else setFacultyState('error', (data && data.message) || 'Your name is not on the faculty list yet.');
     } catch {
       setFacultyState('error', 'Could not reach the SSC records. Check your connection and try again.');
     }
     updatePayment();
   }
   $('verifyFaculty').addEventListener('click', verifyFaculty);
-  function showFacultyName() {
-    const name = $('fullName').value.trim().replace(/\s+/g, ' ');
-    $('facultyName').textContent = name || 'Type your full name above';
-    $('facultyName').classList.toggle('has-name', Boolean(name));
-  }
   $('fullName').addEventListener('input', () => {
-    showFacultyName();
-    // a changed name must be checked again
-    if (facultyVerified || $('facultyCheck').classList.contains('is-error')) { setFacultyState('idle', 'Your name changed. Tap Verify to check it again.'); updatePayment(); }
+    if (facultyVerified && nameKey($('fullName').value) !== verifiedName) { setFacultyState('idle', 'Your name changed. Tap verify again.'); updatePayment(); }
   });
 
   function updatePayment() {
     const role = selected('role');
     const attending = selected('attendance') === 'Attending';
     $('facultyCheck').hidden = role !== 'Faculty';
-    showFacultyName();
     const rateOk = role === 'Student' || (role === 'Faculty' && facultyVerified);
     $('affiliationWrap').hidden = !role;
-    $('affiliationLabel').innerHTML = role === 'Faculty' ? 'Department / Office <span aria-hidden="true">*</span>' : 'Program / Year / Section <span aria-hidden="true">*</span>';
-    $('affiliation').placeholder = role === 'Faculty' ? 'e.g. IT Department' : 'e.g. BSIS 4A';
-    $('affiliation').required = Boolean(role);
+    $('affiliationLabel').innerHTML = role === 'Faculty' ? 'Office <small>(optional)</small>' : 'Program / Year / Section <span aria-hidden="true">*</span>';
+    $('affiliation').placeholder = role === 'Faculty' ? 'e.g. Registrar’s Office' : 'e.g. BSIS 4A';
+    $('affiliation').required = role === 'Student';
+    const notAttending = selected('attendance') === 'Not attending';
+    $('reasonWrap').hidden = !notAttending;
+    $('reason').required = notAttending;
     $('paymentFields').hidden = !attending || !rateOk;
     $('feeValue').textContent = role ? `₱${feeByRole[role]}` : '₱—';
     const method = selected('paymentMethod');
@@ -276,8 +273,10 @@
     const attendance = selected('attendance');
     const affiliation = $('affiliation').value.trim();
     const method = attendance === 'Attending' ? selected('paymentMethod') : 'Not applicable';
-    if (fullName.length < 2 || !role || !attendance || !affiliation) return error('Please fill in your name, category, program or department, and attendance.');
-    if (role === 'Faculty' && !facultyVerified) return error('Please tap Verify so the SSC faculty list can confirm your name.');
+    const reason = $('reason').value.trim().replace(/\s+/g, ' ');
+    if (fullName.length < 2 || !role || !attendance || (role === 'Student' && !affiliation)) return error('Please fill in your name, category, program, and attendance.');
+    if (role === 'Faculty' && (!facultyVerified || nameKey(fullName) !== verifiedName)) return error('Please verify your name on the faculty list first.');
+    if (attendance === 'Not attending' && reason.length < 3) return error('Please give a short reason for not attending.');
     if (attendance === 'Attending' && !method) return error('Please choose how you will pay.');
     if (!$('consent').checked) return error('Please tick the agreement box to continue.');
     const isOnline = method === 'GCash' || method === 'Bank Transfer';
@@ -285,7 +284,7 @@
     if (isOnline && (!preview || $('proofImage').files.length)) {
       try { proof = await imageProof($('proofImage')); } catch (err) { return error(err.message); }
     }
-    const payload = { nonce: nonce(), fullName, role, affiliation, attendance, paymentMethod: method, amount: attendance === 'Attending' ? feeByRole[role] : 0, proof, website: '', clientDate: new Date().toISOString() };
+    const payload = { nonce: nonce(), fullName, role, affiliation, attendance, paymentMethod: method, reason: attendance === 'Not attending' ? reason : '', amount: attendance === 'Attending' ? feeByRole[role] : 0, proof, website: '', clientDate: new Date().toISOString() };
     if (preview) return showAcknowledgment({ ...payload, receiptId: `DEMO-${Date.now().toString(36).toUpperCase()}`, saved: false });
     $('submitBtn').disabled = true;
     $('submitBtn').textContent = 'Sending…';
@@ -318,7 +317,8 @@
     $('replyBody').textContent = !d.saved
       ? 'This is a test preview. Nothing was saved and no payment was recorded.'
       : attending ? 'We look forward to celebrating with you on October 23.' : 'Thank you for letting us know. You will be missed.';
-    const rows = [['Reference', d.receiptId], ['Name', d.fullName], ['Category', d.role], ['Attendance', d.attendance], ['Program / Dept.', d.affiliation]];
+    const rows = [['Reference', d.receiptId], ['Name', d.fullName], ['Category', d.role], ['Attendance', d.attendance]];
+    if (d.affiliation) rows.push([d.role === 'Faculty' ? 'Office' : 'Program', d.affiliation]);
     if (attending) rows.push(['Payment', d.paymentMethod === 'Bank Transfer' ? 'GoTyme Bank' : d.paymentMethod], ['Contribution', `₱${d.amount}`], ['Status', online ? 'Pending verification' : 'Cash, to be paid']);
     $('receiptDetails').replaceChildren(...rows.map(([k, v]) => { const w = document.createElement('div'); const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = String(v); w.append(dt, dd); return w; }));
     $('receiptFooter').textContent = !d.saved ? 'Sample only. Not saved or validated.' : 'Event acknowledgment only, not an official receipt. Online payments are checked by the SSC.';

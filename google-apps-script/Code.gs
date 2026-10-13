@@ -20,7 +20,6 @@ function setupPanaghimamat() {
   const p = PropertiesService.getScriptProperties();
   if (p.getProperty('SHEET_ID')) {
     const old = SpreadsheetApp.openById(p.getProperty('SHEET_ID'));
-    facultyListSheet_(old); // adds the Faculty List tab to an existing sheet
     Logger.log('Already initialized — sheet: ' + old.getUrl());
     return { spreadsheetUrl: old.getUrl(), folderId: p.getProperty('PROOF_FOLDER_ID') };
   }
@@ -30,13 +29,13 @@ function setupPanaghimamat() {
   const students = book.insertSheet('Students');
   const faculty = book.insertSheet('Faculty');
   const guide = book.insertSheet('SSC Guide');
-  facultyListSheet_(book);
   styleRecords_(students, '#204438');
   styleRecords_(faculty, '#394F72');
   styleDashboard_(dashboard);
   styleGuide_(guide);
   const proofFolder = DriveApp.createFolder('Panaghimamat 2026 — PRIVATE Payment Proofs');
   p.setProperties({SHEET_ID:book.getId(),PROOF_FOLDER_ID:proofFolder.getId(),ALLOWED_ORIGIN:EVENT.expectedOrigin});
+  facultyListSheet_();
   Logger.log('COPY SHEET LINK: ' + book.getUrl());
   Logger.log('PRIVATE PROOF FOLDER: ' + proofFolder.getUrl());
   return { spreadsheetUrl: book.getUrl(), proofFolderUrl: proofFolder.getUrl() };
@@ -126,7 +125,8 @@ function styleGuide_(sheet) {
     ['Faculty','₱400 each. New responses arrive automatically on the Faculty tab.'],
     ['Cash','“Cash — to collect” means NOT paid; verify cash and update status manually.'],
     ['GCash / bank','“Online — pending verification” means a screenshot was submitted, NOT that payment cleared.'],
-    ['Faculty list','Type each faculty member’s full name in the “Faculty List” tab. Only listed names get the ₱400 rate, and each name can reply once.'],
+    ['Faculty list','Type each faculty member’s full name in the “Faculty List” tab (column A). Faculty replies are accepted only for names on that list.'],
+    ['Not attending','The reason given is saved in “SSC notes”. Officers review these.'],
     ['Payment verification','Guests do not type a reference number. Read it from their screenshot, enter it in “Transaction reference”, and check it against the receiving account. Only after confirmation set Status to “Verified — paid”.'],
     ['Payment screenshots','Stored in a PRIVATE Google Drive folder. Do not publicly share URLs or change the folder’s visibility.'],
     ['Privacy','Limit access to authorized SSC staff. Use records only for event coordination, collection tracking and verification.'],
@@ -152,64 +152,45 @@ function doGet(e) {
 }
 
 /**
- * Faculty verification. There is no log-in, so the SSC (usually the President) types each
- * faculty member's full name into the "Faculty List" tab. Only names on that list get the
- * faculty rate, and each listed name can reply once.
+ * Faculty verification by name. There is no log-in, so SSC officers type the full names
+ * of faculty members in the "Faculty List" tab (column A, one name per row). A faculty
+ * reply is accepted only when the name matches that list.
  */
-const FACULTY_LIST = 'Faculty List';
-const TITLES_ = /^(mr|mrs|ms|miss|dr|engr|prof|sir|maam|madam|atty)$/;
-
-function normalizeName_(value) {
-  return String(value == null ? '' : value).normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z\s-]/g, ' ').replace(/-/g, ' ').split(/\s+/)
-    .filter(w => w && !TITLES_.test(w)).join(' ');
-}
-// Same person if the full names match, or first and last names match (middle names/initials optional).
-function sameName_(a, b) {
-  if (!a || !b) return false;
-  if (a === b) return true;
-  const x = a.split(' '), y = b.split(' ');
-  return x.length > 1 && y.length > 1 && x[0] === y[0] && x[x.length - 1] === y[y.length - 1];
-}
-function facultyListSheet_(book) {
-  let sheet = book.getSheetByName(FACULTY_LIST);
+const FACULTY_LIST_TAB = 'Faculty List';
+function facultyListSheet_() {
+  const book = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SHEET_ID'));
+  let sheet = book.getSheetByName(FACULTY_LIST_TAB);
   if (!sheet) {
-    sheet = book.insertSheet(FACULTY_LIST);
-    sheet.getRange('A1:B1').setValues([['Faculty full name', 'Notes (optional)']])
-      .setFontWeight('bold').setBackground('#394F72').setFontColor('#FFFFFF');
-    sheet.setColumnWidth(1, 320); sheet.setColumnWidth(2, 320); sheet.setFrozenRows(1);
-    sheet.setTabColor('#394F72');
+    sheet = book.insertSheet(FACULTY_LIST_TAB);
+    sheet.getRange('A1:B1').setValues([['Faculty full name','Notes']]).setFontWeight('bold').setBackground('#394F72').setFontColor('#FFFFFF');
+    sheet.setColumnWidth(1, 320); sheet.setColumnWidth(2, 260); sheet.setFrozenRows(1);
   }
   return sheet;
 }
-function facultyOnList_(book, fullName) {
-  const name = normalizeName_(fullName);
-  const sheet = facultyListSheet_(book);
-  if (sheet.getLastRow() < 2) return false;
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues()
-    .some(r => sameName_(normalizeName_(r[0]), name));
+function normalizeName_(value) {
+  return String(value == null ? '' : value).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/\b(mr|mrs|ms|dr|prof|sir|maam|engr|atty)\b\.?/g, ' ').replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
-function facultyAlreadyReplied_(book, fullName) {
-  const name = normalizeName_(fullName);
-  const sheet = book.getSheetByName('Faculty');
-  if (!sheet || sheet.getLastRow() < 2) return false;
-  return sheet.getRange(2, 3, sheet.getLastRow() - 1, 1).getValues()
-    .some(r => sameName_(normalizeName_(r[0]), name));
+function isListedFaculty_(name) {
+  const given = normalizeName_(name);
+  if (given.split(' ').length < 2) return false;
+  const g = given.split(' ');
+  const rows = facultyListSheet_().getRange('A2:A').getValues();
+  return rows.some(([listed]) => {
+    const n = normalizeName_(listed);
+    if (!n) return false;
+    if (n === given) return true;
+    const t = n.split(' ');            // allow a missing middle name / initial
+    return t.length >= 2 && t[0] === g[0] && t[t.length - 1] === g[g.length - 1];
+  });
 }
-function verifyFaculty_(fullName) {
+function verifyFaculty_(name) {
   const cache = CacheService.getScriptCache();
   const fails = Number(cache.get('faculty_fails') || 0);
-  if (fails >= 40) return { ok: false, message: 'Too many attempts. Please wait 10 minutes or ask an SSC officer.' };
-  if (normalizeName_(fullName).split(' ').length < 2) return { ok: false, message: 'Please type your full name (first and last name).' };
-  const sheetId = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
-  if (!sheetId) return { ok: false, message: 'Faculty verification is not set up yet. Please contact the SSC.' };
-  const book = SpreadsheetApp.openById(sheetId);
-  if (!facultyOnList_(book, fullName)) {
-    cache.put('faculty_fails', String(fails + 1), 600);
-    return { ok: false, message: 'Your name is not on the SSC faculty list yet. Please message the SSC President.' };
-  }
-  if (facultyAlreadyReplied_(book, fullName)) return { ok: false, message: 'This name already has a reply. If that was not you, please tell the SSC.' };
-  return { ok: true };
+  if (fails >= 40) return { ok: false, message: 'Too many attempts. Please wait 10 minutes or message an SSC officer.' };
+  if (isListedFaculty_(name)) return { ok: true };
+  cache.put('faculty_fails', String(fails + 1), 600);
+  return { ok: false, message: 'Your name is not on the faculty list yet. Please type your full name as the SSC knows it, or message an SSC officer.' };
 }
 
 function doPost(e) {
@@ -223,7 +204,7 @@ function doPost(e) {
     return reply_({type:'PANAGHIMAMAT_SUBMISSION',nonce,ok:true,receiptId:result.receiptId});
   } catch (ex) {
     const message = ex && ex.message === 'FACULTY_UNVERIFIED'
-      ? 'Faculty verification failed. Your name must be on the SSC faculty list and can reply only once.'
+      ? 'Your name could not be verified on the faculty list. Please check it or message an SSC officer.'
       : 'Unable to record this submission. Please contact the SSC or try again.';
     return reply_({type:'PANAGHIMAMAT_SUBMISSION',nonce,ok:false,message});
   }
@@ -243,11 +224,14 @@ function saveSubmission_(d) {
   const attendance = text(d.attendance,30);
   const method = text(d.paymentMethod,30);
   const transactionRef = '';
-  if (fullName.length < 2 || !affiliation || !['Student','Faculty'].includes(role) ||
+  const reason = text(d.reason,300);
+  if (fullName.length < 2 || (role === 'Student' && !affiliation) || !['Student','Faculty'].includes(role) ||
       !['Attending','Not attending'].includes(attendance)) throw Error('Invalid response');
   const attending = attendance === 'Attending';
   const allowedMethods = ['Cash','GCash','Bank Transfer'];
   if ((attending && !allowedMethods.includes(method)) || (!attending && method !== 'Not applicable')) throw Error('Invalid payment');
+  if (!attending && reason.length < 3) throw Error('Missing reason');
+  if (role === 'Faculty' && !isListedFaculty_(fullName)) throw Error('FACULTY_UNVERIFIED');
   const online = attending && ['GCash','Bank Transfer'].includes(method);
   if (!!d.proof !== online) throw Error('Missing or unexpected proof');
   // Recalculate the fee on the server. Never trust a submitted amount.
@@ -263,7 +247,6 @@ function saveSubmission_(d) {
     // Make a duplicate submission idempotent, even if the browser retries.
     const existing = sheet.getRange('N2:N' + Math.max(2,sheet.getLastRow())).createTextFinder(nonce).matchEntireCell(true).findNext();
     if (existing) return {receiptId:sheet.getRange(existing.getRow(),2).getDisplayValue()};
-    if (role === 'Faculty' && (!facultyOnList_(book, fullName) || facultyAlreadyReplied_(book, fullName))) throw Error('FACULTY_UNVERIFIED');
     let proofUrl = '';
     if (online) {
       const proof = d.proof;
@@ -281,7 +264,7 @@ function saveSubmission_(d) {
     // Prevent user-provided spreadsheet formula injection.
     const plain = s => /^[=+\-@\t\r]/.test(String(s)) ? "'"+s : s;
     sheet.appendRow([new Date(), receiptId, plain(fullName),plain(affiliation),attendance, amount,method,
-      status,plain(transactionRef),proofUrl,'','',plain(text(d.clientDate,60)),nonce]);
+      status,plain(transactionRef),proofUrl,'',attending?'':plain('Reason: '+reason),plain(text(d.clientDate,60)),nonce]);
     const row=sheet.getLastRow();
     sheet.getRange(row,1,1,14).setBackground(row%2===0?'#FCFCF8':'#F1F4EE');
     sheet.getRange(row,6).setNumberFormat('"₱"#,##0.00');
@@ -303,4 +286,9 @@ function reply_(data) {
   return HtmlService.createHtmlOutput(out)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .setTitle('Submission response');
+}
+
+/** Run once if your sheet was created before the faculty list existed. */
+function createFacultyList() {
+  Logger.log('Faculty List tab ready: ' + facultyListSheet_().getParent().getUrl());
 }
