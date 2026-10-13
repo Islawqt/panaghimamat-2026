@@ -10,7 +10,6 @@
   const wait = (ms) => new Promise((r) => setTimeout(r, reduceMotion ? 0 : ms));
   let step = 0;
   let busy = false;
-  let pending = null;
 
   const anim = (el, frames, opts) => {
     if (reduceMotion || !el.animate) { Object.assign(el.style, frames[frames.length - 1]); return Promise.resolve(); }
@@ -20,7 +19,7 @@
   const EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
   const EASE_IN_OUT = 'cubic-bezier(.65,0,.35,1)';
 
-  /* ---------- Pages (soft fade, drift and focus-pull between pages) ---------- */
+  /* ---------- Pages (soft fade and rise/fall between pages) ---------- */
   let switching = false;
   function applyStep(next) {
     step = next;
@@ -35,18 +34,19 @@
     const dir = next > step ? 1 : -1;
     const out = screens[step], into = screens[next];
     if (!instant && !reduceMotion) {
-      await anim(out, [{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: `translateX(${-dir * 28}px) scale(.985)`, filter: 'blur(4px)' }], { duration: 320, easing: 'cubic-bezier(.55,0,.75,.4)' });
+      await anim(out, [{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: `translateY(${-dir * 22}px)`, filter: 'blur(3px)' }], { duration: 280, easing: 'cubic-bezier(.55,0,.75,.4)' });
       out.style.cssText = '';
     }
     applyStep(next);
+    if (next >= 1) warmUp();
     window.scrollTo({ top: 0 });
     $('mainContent').focus({ preventScroll: true });
     if (!instant && !reduceMotion) {
       const parts = [...into.children].filter((el) => !el.hidden);
       parts.forEach((el) => { el.style.opacity = '0'; });
       await Promise.all(parts.map((el, i) => anim(el,
-        [{ opacity: 0, transform: `translateX(${dir * 34}px) translateY(6px)`, filter: 'blur(5px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
-        { duration: 620, delay: Math.min(i, 6) * 70, easing: EASE_OUT })));
+        [{ opacity: 0, transform: `translateY(${dir * 26}px)`, filter: 'blur(4px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
+        { duration: 560, delay: Math.min(i, 6) * 60, easing: EASE_OUT })));
       parts.forEach((el) => { el.style.cssText = ''; });
     }
     switching = false;
@@ -183,12 +183,30 @@
   }
 
   /* ---------- Form ---------- */
-  const configured = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(config.sheetWebAppUrl || '');
+  const API = config.sheetWebAppUrl || '';
+  const configured = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(API);
   const preview = testMode || !configured;
-  function selected(name) { return document.querySelector(`[name="${name}"]:checked`)?.value || ''; }
+  const selected = (name) => document.querySelector(`[name="${name}"]:checked`)?.value || '';
+  const cleanName = () => $('fullName').value.trim().replace(/\s+/g, ' ');
+  const nameKey = (v) => v.trim().toLowerCase().replace(/\s+/g, ' ');
+
+  // Small JSON helper with a time limit, so a slow signal never hangs the page.
+  async function callApi(url, options = {}, ms = 20000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const res = await fetch(url, { ...options, signal: ctrl.signal, credentials: 'omit', redirect: 'follow' });
+      const raw = await res.text();
+      try { return JSON.parse(raw); } catch { return { ok: false, notReady: true }; }
+    } finally { clearTimeout(timer); }
+  }
+  // Wake the Google script early so the actual sending is quicker.
+  let warmed = false;
+  function warmUp() { if (warmed || !configured) return; warmed = true; fetch(`${API}?action=ping`, { credentials: 'omit' }).catch(() => {}); }
+
+  /* Faculty check: the name is matched against the SSC's Faculty List */
   let facultyVerified = false;
   let verifiedName = '';
-  const nameKey = (v) => v.trim().toLowerCase().replace(/\s+/g, ' ');
   function setFacultyState(state, message) {
     const box = $('facultyCheck');
     facultyVerified = state === 'ok';
@@ -199,17 +217,17 @@
     if (message) $('facultyStatus').textContent = message;
   }
   async function verifyFaculty() {
-    const name = $('fullName').value.trim().replace(/\s+/g, ' ');
-    if (name.split(' ').length < 2) { $('fullName').focus(); return setFacultyState('error', 'Please type your full name (first and last name) in the name field first.'); }
-    if (!configured) return setFacultyState('error', 'Verification is offline right now. Please contact the SSC.');
-    setFacultyState('busy');
+    const name = cleanName();
+    if (name.split(' ').length < 2) { $('fullName').focus(); return setFacultyState('error', 'Type your full name (first and last name) in the name box first.'); }
+    if (!configured) return setFacultyState('error', 'Faculty check is not available right now. Please message an SSC officer.');
+    setFacultyState('busy', 'Checking the faculty list…');
     try {
-      const res = await fetch(`${config.sheetWebAppUrl}?action=verifyFaculty&name=${encodeURIComponent(name)}`, { method: 'GET', credentials: 'omit' });
-      const data = await res.json();
-      if (data && data.ok === true) { verifiedName = nameKey(name); setFacultyState('ok', 'Verified on the faculty list. The faculty rate of ₱400 applies.'); }
-      else setFacultyState('error', (data && data.message) || 'Your name is not on the faculty list yet.');
+      const data = await callApi(`${API}?action=verifyFaculty&name=${encodeURIComponent(name)}`, {}, 15000);
+      if (data.ok === true) { verifiedName = nameKey(name); setFacultyState('ok', 'Verified. The faculty rate of ₱400 applies.'); }
+      else if (data.notReady) setFacultyState('error', 'Faculty check is not ready yet. Please try again later or message an SSC officer.');
+      else setFacultyState('error', data.message || 'Your name is not on the faculty list yet.');
     } catch {
-      setFacultyState('error', 'Could not reach the SSC records. Check your connection and try again.');
+      setFacultyState('error', 'No connection. Please check your signal and tap verify again.');
     }
     updatePayment();
   }
@@ -217,27 +235,24 @@
   $('fullName').addEventListener('input', () => {
     if (facultyVerified && nameKey($('fullName').value) !== verifiedName) { setFacultyState('idle', 'Your name changed. Tap verify again.'); updatePayment(); }
   });
+  $('fullName').addEventListener('change', () => { if (selected('role') === 'Faculty' && !facultyVerified && cleanName().split(' ').length >= 2) verifyFaculty(); });
 
   function updatePayment() {
     const role = selected('role');
-    const attending = selected('attendance') === 'Attending';
+    const attendance = selected('attendance');
+    const attending = attendance === 'Attending';
     $('facultyCheck').hidden = role !== 'Faculty';
     const rateOk = role === 'Student' || (role === 'Faculty' && facultyVerified);
-    $('affiliationWrap').hidden = !role;
-    $('affiliationLabel').innerHTML = role === 'Faculty' ? 'Office <small>(optional)</small>' : 'Program / Year / Section <span aria-hidden="true">*</span>';
-    $('affiliation').placeholder = role === 'Faculty' ? 'e.g. Registrar’s Office' : 'e.g. BSIS 4A';
-    $('affiliation').required = role === 'Student';
-    const notAttending = selected('attendance') === 'Not attending';
-    $('reasonWrap').hidden = !notAttending;
-    $('reason').required = notAttending;
+    $('reasonWrap').hidden = attendance !== 'Not attending';
     $('paymentFields').hidden = !attending || !rateOk;
     $('feeValue').textContent = role ? `₱${feeByRole[role]}` : '₱—';
     const method = selected('paymentMethod');
-    const online = attending && rateOk && (method === 'GCash' || method === 'Bank Transfer');
-    $('proofWrap').hidden = !online;
-    $('proofImage').required = online && !testMode;
+    $('proofWrap').hidden = !(attending && rateOk && (method === 'GCash' || method === 'Bank Transfer'));
   }
   document.querySelectorAll('[name="role"],[name="attendance"],[name="paymentMethod"]').forEach((i) => i.addEventListener('change', updatePayment));
+  document.querySelectorAll('[name="role"]').forEach((i) => i.addEventListener('change', () => {
+    if (i.value === 'Faculty' && i.checked && !facultyVerified && cleanName().split(' ').length >= 2) verifyFaculty();
+  }));
 
   $('previewRibbon').hidden = !testMode;
   $('connectionStatus').textContent = preview ? 'Test preview: your reply will not be saved yet.' : '';
@@ -245,68 +260,65 @@
 
   function error(message) { $('formError').textContent = message; $('formError').hidden = false; $('formError').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
   function clearError() { $('formError').hidden = true; $('formError').textContent = ''; }
-  function nonce() {
-    const bytes = new Uint8Array(16);
-    if (globalThis.crypto?.getRandomValues) crypto.getRandomValues(bytes);
-    else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-    return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
-  }
-  function imageProof(input) {
-    return new Promise((resolve, reject) => {
-      const file = input.files[0];
-      if (!file) return reject(new Error('Please attach your payment screenshot.'));
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return reject(new Error('Use a JPG, PNG or WebP screenshot.'));
-      if (file.size > 2 * 1024 * 1024) return reject(new Error('Screenshot must be 2 MB or smaller.'));
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error('Could not read the screenshot.'));
-      reader.onload = () => resolve({ name: file.name.replace(/[^\w.-]/g, '_').slice(0, 80), mime: file.type, base64: String(reader.result).split(',')[1] });
-      reader.readAsDataURL(file);
-    });
+
+  // Shrink the screenshot before sending (phone screenshots are often 1–3 MB). Much faster on slow data.
+  async function imageProof(input) {
+    const file = input.files[0];
+    if (!file) throw new Error('Please attach your payment screenshot.');
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Use a JPG, PNG or WebP screenshot.');
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bmp.width * scale); canvas.height = Math.round(bmp.height * scale);
+      canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      const base64 = canvas.toDataURL('image/jpeg', 0.78).split(',')[1];
+      return { mime: 'image/jpeg', base64 };
+    } catch {
+      if (file.size > 2 * 1024 * 1024) throw new Error('Screenshot must be 2 MB or smaller.');
+      const dataUrl = await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = bad; r.readAsDataURL(file); });
+      return { mime: file.type, base64: dataUrl.split(',')[1] };
+    }
   }
 
+  let sending = false;
   $('rsvpForm').addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (sending) return;
     clearError();
     if ($('companyWebsite').value) return;
-    const fullName = $('fullName').value.trim().replace(/\s+/g, ' ');
+    const fullName = cleanName();
     const role = selected('role');
     const attendance = selected('attendance');
-    const affiliation = $('affiliation').value.trim();
-    const method = attendance === 'Attending' ? selected('paymentMethod') : 'Not applicable';
+    const method = attendance === 'Attending' ? selected('paymentMethod') : '';
     const reason = $('reason').value.trim().replace(/\s+/g, ' ');
-    if (fullName.length < 2 || !role || !attendance || (role === 'Student' && !affiliation)) return error('Please fill in your name, category, program, and attendance.');
+    if (fullName.split(' ').length < 2 || !role || !attendance) return error('Please fill in your full name, type, and attendance.');
     if (role === 'Faculty' && (!facultyVerified || nameKey(fullName) !== verifiedName)) return error('Please verify your name on the faculty list first.');
     if (attendance === 'Not attending' && reason.length < 3) return error('Please give a short reason for not attending.');
     if (attendance === 'Attending' && !method) return error('Please choose how you will pay.');
     if (!$('consent').checked) return error('Please tick the agreement box to continue.');
     const isOnline = method === 'GCash' || method === 'Bank Transfer';
-    let proof = null;
-    if (isOnline && (!preview || $('proofImage').files.length)) {
-      try { proof = await imageProof($('proofImage')); } catch (err) { return error(err.message); }
-    }
-    const payload = { nonce: nonce(), fullName, role, affiliation, attendance, paymentMethod: method, reason: attendance === 'Not attending' ? reason : '', amount: attendance === 'Attending' ? feeByRole[role] : 0, proof, website: '', clientDate: new Date().toISOString() };
-    if (preview) return showAcknowledgment({ ...payload, receiptId: `DEMO-${Date.now().toString(36).toUpperCase()}`, saved: false });
+    sending = true;
     $('submitBtn').disabled = true;
     $('submitBtn').textContent = 'Sending…';
-    pending = { ...payload, timeout: null };
-    // Plain form POST into a hidden frame keeps personal data out of URLs.
-    const form = document.createElement('form');
-    form.method = 'POST'; form.action = config.sheetWebAppUrl; form.target = 'submissionFrame'; form.hidden = true;
-    const field = document.createElement('input'); field.type = 'hidden'; field.name = 'payload'; field.value = JSON.stringify(payload); form.append(field);
-    document.body.append(form);
-    pending.timeout = setTimeout(() => { if (!pending) return; pending = null; resetSubmit(); error('We could not confirm your reply was saved. Please try again or message the SSC.'); }, 25000);
-    try { form.submit(); } catch { clearTimeout(pending.timeout); pending = null; resetSubmit(); error('Could not send your reply. Please try again.'); }
-    form.remove();
-  });
-  function resetSubmit() { $('submitBtn').disabled = false; $('submitBtn').textContent = 'Send my reply'; }
-  window.addEventListener('message', (event) => {
-    if (!pending || !event.data || event.data.type !== 'PANAGHIMAMAT_SUBMISSION') return;
-    if (!/^https:\/\/([\w-]+\.)?(script\.google\.com|googleusercontent\.com)$/.test(event.origin)) return;
-    if (event.data.nonce !== pending.nonce) return;
-    clearTimeout(pending.timeout);
-    const saved = pending; pending = null; resetSubmit();
-    if (event.data.ok === true && /^[A-Z0-9-]{8,36}$/.test(String(event.data.receiptId || ''))) showAcknowledgment({ ...saved, receiptId: event.data.receiptId, saved: true });
-    else error(event.data.message || 'Your reply could not be saved. Please try again.');
+    try {
+      let proof = null;
+      if (isOnline && (!preview || $('proofImage').files.length)) proof = await imageProof($('proofImage'));
+      const payload = { fullName, role, attendance, paymentMethod: method, reason: attendance === 'Not attending' ? reason : '', proof, website: '' };
+      const amount = attendance === 'Attending' ? feeByRole[role] : 0;
+      if (preview) return showAcknowledgment({ ...payload, amount, receiptId: `DEMO-${Date.now().toString(36).toUpperCase()}`, saved: false });
+      // text/plain keeps this a "simple" request, so the browser sends it straight away (no pre-check round trip).
+      const data = await callApi(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }, 45000);
+      if (data.ok === true) showAcknowledgment({ ...payload, amount, receiptId: data.receiptId, saved: true });
+      else if (data.notReady) error('The SSC records are being updated. Please try again in a few minutes.');
+      else error(data.message || 'Your reply could not be saved. Please try again.');
+    } catch (err) {
+      error(err && err.name === 'AbortError' ? 'Sending took too long. Please check your signal and try again.' : (err && err.message) || 'No connection. Please try again.');
+    } finally {
+      sending = false;
+      $('submitBtn').disabled = false;
+      $('submitBtn').textContent = preview ? 'Preview my reply' : 'Send my reply';
+    }
   });
 
   function showAcknowledgment(d) {
@@ -317,9 +329,8 @@
     $('replyBody').textContent = !d.saved
       ? 'This is a test preview. Nothing was saved and no payment was recorded.'
       : attending ? 'We look forward to celebrating with you on October 23.' : 'Thank you for letting us know. You will be missed.';
-    const rows = [['Reference', d.receiptId], ['Name', d.fullName], ['Category', d.role], ['Attendance', d.attendance]];
-    if (d.affiliation) rows.push([d.role === 'Faculty' ? 'Office' : 'Program', d.affiliation]);
-    if (attending) rows.push(['Payment', d.paymentMethod === 'Bank Transfer' ? 'GoTyme Bank' : d.paymentMethod], ['Contribution', `₱${d.amount}`], ['Status', online ? 'Pending verification' : 'Cash, to be paid']);
+    const rows = [['Reference', d.receiptId], ['Name', d.fullName], ['Type', d.role], ['Attending', attending ? 'Yes' : 'No']];
+    if (attending) rows.push(['Payment', d.paymentMethod === 'Bank Transfer' ? 'GoTyme' : d.paymentMethod], ['Contribution', `₱${d.amount}`], ['Status', online ? 'Pending verification' : 'Cash, to be paid']);
     $('receiptDetails').replaceChildren(...rows.map(([k, v]) => { const w = document.createElement('div'); const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = String(v); w.append(dt, dd); return w; }));
     $('receiptFooter').textContent = !d.saved ? 'Sample only. Not saved or validated.' : 'Event acknowledgment only, not an official receipt. Online payments are checked by the SSC.';
     $('printReceipt').disabled = !d.saved;

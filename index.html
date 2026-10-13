@@ -161,7 +161,7 @@
         <p class="lead">Kindly let us know so we can prepare for you.</p>
 
         <form id="rsvpForm" class="paper paper-card form-card" novalidate>
-          <div class="form-field"><label for="fullName">Full name <span aria-hidden="true">*</span></label><input id="fullName" name="fullName" type="text" minlength="2" maxlength="100" autocomplete="name" placeholder="Juan Dela Cruz" required></div>
+          <div class="form-field"><label for="fullName">Full name <span aria-hidden="true">*</span></label><input id="fullName" name="fullName" type="text" minlength="2" maxlength="100" autocomplete="name" placeholder="First and last name, e.g. Juan Dela Cruz" required></div>
 
           <fieldset><legend>I am a <span aria-hidden="true">*</span></legend>
             <div class="choice-grid"><label class="choice"><input type="radio" name="role" value="Student" required><span>Student</span></label><label class="choice"><input type="radio" name="role" value="Faculty" required><span>Faculty</span></label></div>
@@ -169,11 +169,10 @@
 
           <div class="faculty-check" id="facultyCheck" hidden>
             <p class="faculty-title">Faculty verification</p>
-            <p class="field-help" id="facultyStatus" role="status">There is no log-in, so we check your full name against the faculty list kept by the SSC officers. Type your name above, then tap verify.</p>
+            <p class="field-help" id="facultyStatus" role="status">We check your name against the SSC’s faculty list. Type your full name above, then tap verify.</p>
             <button type="button" class="verify-btn" id="verifyFaculty">Verify my name</button>
           </div>
 
-          <div class="form-field" id="affiliationWrap" hidden><label for="affiliation" id="affiliationLabel">Program / Year / Section <span aria-hidden="true">*</span></label><input id="affiliation" name="affiliation" type="text" maxlength="100" placeholder="e.g. BSIS 4A"></div>
 
           <fieldset><legend>Attendance <span aria-hidden="true">*</span></legend>
             <div class="choice-grid"><label class="choice"><input type="radio" name="attendance" value="Attending" required><span>Happily attending</span></label><label class="choice"><input type="radio" name="attendance" value="Not attending" required><span>Unable to attend</span></label></div>
@@ -273,7 +272,5 @@
       </div>
     </div>
   </div>
-
-  <iframe id="submissionFrame" name="submissionFrame" title="Response submission" hidden></iframe>
 </body>
 </html>
