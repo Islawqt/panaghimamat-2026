@@ -54,7 +54,7 @@
   }
   $('nextBtn').addEventListener('click', () => showStep(step + 1));
   $('backBtn').addEventListener('click', () => showStep(step - 1));
-  $('toPayment').addEventListener('click', () => showStep(1));
+  $('toPayment').addEventListener('click', () => { if (!busy) showStep(1); });
   $('brandHome').addEventListener('click', (e) => { e.preventDefault(); if (step !== 0) showStep(0); });
   $('restartButton').addEventListener('click', () => showStep(0));
 
@@ -66,6 +66,19 @@
   const flap = envelope.querySelector('.env-flap');
   const letter = envelope.querySelector('.env-letter');
   const content = card.querySelector('.invite-content');
+  const replySlip = document.createElement('div');
+  replySlip.className = 'env-reply paper';
+  replySlip.setAttribute('aria-hidden', 'true');
+  replySlip.hidden = true;
+  const slipKicker = document.createElement('span');
+  slipKicker.className = 'mini-kicker';
+  slipKicker.textContent = 'Your next chapter';
+  const slipTitle = document.createElement('strong');
+  slipTitle.textContent = 'Contribution & RSVP';
+  const slipNote = document.createElement('span');
+  slipNote.textContent = 'A celebration awaits your reply';
+  replySlip.append(slipKicker, slipTitle, slipNote);
+  envelope.append(replySlip);
 
   if (config.eventTheme) {
     $('themeValue').textContent = config.eventTheme;
@@ -81,7 +94,7 @@
   }
 
   async function openEnvelope() {
-    if (busy) return;
+    if (busy || switching) return;
     busy = true;
     envelope.classList.remove('is-read');
     envelope.classList.add('is-open');
@@ -109,32 +122,77 @@
     busy = false;
   }
 
+  // Three paper panels fold over their real creases, then return to the envelope.
+  async function foldPaper() {
+    if (reduceMotion) return;
+    card.scrollTop = 0;
+    const rect = card.getBoundingClientRect();
+    const stage = document.createElement('div');
+    stage.className = 'paper-fold';
+    stage.setAttribute('aria-hidden', 'true');
+    stage.inert = true;
+    Object.assign(stage.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
+    const panels = [0, 1, 2].map((i) => {
+      const panel = document.createElement('div');
+      panel.className = `fold-panel fold-panel-${i}`;
+      const face = document.createElement('div');
+      face.className = 'fold-face';
+      const copy = card.querySelector('.invite-sheet').cloneNode(true);
+      copy.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+      copy.querySelectorAll('a,button,input').forEach((el) => { el.setAttribute('tabindex', '-1'); });
+      Object.assign(copy.style, { width: `${rect.width}px`, position: 'absolute', top: `${-i * rect.height / 3}px`, left: '0' });
+      face.append(copy);
+      const back = document.createElement('div');
+      back.className = 'fold-back';
+      panel.append(face, back);
+      stage.append(panel);
+      return panel;
+    });
+    layer.append(stage);
+    card.style.visibility = 'hidden';
+    try {
+      await anim(panels[0], [{ transform: 'rotateX(0deg)' }, { transform: 'rotateX(-180deg)' }], { duration: 520, easing: EASE_IN_OUT });
+      await anim(panels[2], [{ transform: 'rotateX(0deg)' }, { transform: 'rotateX(180deg)' }], { duration: 520, easing: EASE_IN_OUT });
+      const target = letter.getBoundingClientRect();
+      const dx = target.left + target.width / 2 - rect.left - rect.width / 2;
+      const dy = target.top + target.height / 2 - rect.top - rect.height / 2;
+      await Promise.all([
+        anim(stage, [{ transform: 'none' }, { transform: `translate(${dx}px,${dy}px) scale(${target.width / rect.width},${target.height * 3 / rect.height})` }], { duration: 650, easing: EASE_IN_OUT }),
+        anim(layer, [{ backgroundColor: 'rgba(18,2,5,.62)', backdropFilter: 'blur(3px)' }, { backgroundColor: 'rgba(18,2,5,0)', backdropFilter: 'blur(0px)' }], { duration: 650, easing: 'ease-in' })
+      ]);
+    } finally {
+      stage.remove();
+      card.style.visibility = '';
+    }
+  }
+
   async function closeEnvelope() {
     if (busy || layer.hidden) return;
     busy = true;
-    await anim(content, [{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease-in' });
-    card.scrollTop = 0;
-    const to = letterToCard();
-    anim(layer, [{ backgroundColor: 'rgba(18,2,5,.62)' }, { backgroundColor: 'rgba(18,2,5,0)' }], { duration: 620, easing: 'ease-in' });
-    await anim(card, [{ transform: 'none' }, { transform: to }], { duration: 620, easing: EASE_IN_OUT });
-    letter.style.opacity = '';
-    layer.hidden = true;
-    card.style.transform = ''; layer.style.backgroundColor = ''; content.style.cssText = '';
-    // letter slides back in, flap folds down, seal is pressed back on
-    await anim(letter, [{ transform: 'translateY(-46%)' }, { transform: 'translateY(0)' }], { duration: 640, easing: EASE_IN_OUT });
-    await anim(flap, [{ transform: 'rotateX(180deg)' }, { transform: 'rotateX(90deg)' }], { duration: 360, easing: 'cubic-bezier(.5,0,.75,.3)' });
-    envelope.classList.remove('flap-up');
-    await anim(flap, [{ transform: 'rotateX(90deg)' }, { transform: 'rotateX(0deg)' }], { duration: 420, easing: EASE_OUT });
-    await anim(seal, [{ transform: 'translateY(-10px) scale(1.25)', opacity: 0 }, { transform: 'scale(.96)', opacity: 1, offset: .75 }, { transform: 'scale(1)', opacity: 1 }], { duration: 480, easing: EASE_OUT });
-    envelope.classList.remove('is-open');
-    envelope.classList.add('is-read');
-    if ($('afterRead').hidden) {
+    try {
+      await foldPaper();
+      letter.style.opacity = '';
+      layer.hidden = true;
+      await anim(letter, [{ transform: 'translateY(-46%)' }, { transform: 'translateY(0)' }], { duration: 480, easing: EASE_IN_OUT });
+      letter.style.opacity = '0';
+      $('envelopeHint').hidden = true;
+      // Keep the flap open: the reply slip emerges only after the letter is tucked in.
+      replySlip.hidden = false;
+      await anim(replySlip, [{ transform: 'translateY(0)' }, { transform: 'translateY(-80%)' }], { duration: 780, easing: EASE_OUT });
+      await wait(420);
+      await showStep(1);
+    } finally {
+      // Reset the envelope off-screen so Back / Read again always works.
+      layer.hidden = true;
+      layer.style.cssText = ''; card.style.cssText = ''; content.style.cssText = '';
+      replySlip.hidden = true; replySlip.style.cssText = '';
+      letter.style.cssText = ''; flap.style.cssText = ''; seal.style.cssText = '';
+      envelope.classList.remove('is-open', 'flap-up');
+      envelope.classList.add('is-read');
       $('envelopeHint').hidden = true;
       $('afterRead').hidden = false;
-      await anim($('afterRead'), [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 520, easing: EASE_OUT });
+      busy = false;
     }
-    $('toPayment').focus({ preventScroll: true });
-    busy = false;
   }
   $('sealButton').addEventListener('click', openEnvelope);
   $('reopenEnvelope').addEventListener('click', openEnvelope);
@@ -247,6 +305,25 @@
   }
 
   let sending = false;
+  // Persist only opaque hashes/IDs, never names or payment screenshots.
+  // An unchanged reply keeps its ID after a timeout, refresh, or repeat click.
+  const requestIds = new Map();
+  async function requestIdFor(payload) {
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    const hash = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+    const key = 'panaghimamat-request-v1';
+    let stored = [];
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || '[]');
+      if (Array.isArray(value)) stored = value.filter((r) => r && typeof r.hash === 'string' && /^[a-zA-Z0-9-]{16,100}$/.test(r.id) && r.time > Date.now() - 30 * 86400000);
+    } catch { /* Storage may be unavailable in private browsing. */ }
+    const found = stored.find((r) => r.hash === hash);
+    const id = found?.id || requestIds.get(hash) || Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+    requestIds.set(hash, id);
+    try { localStorage.setItem(key, JSON.stringify([...stored.filter((r) => r.hash !== hash).slice(-19), { hash, id, time: Date.now() }])); } catch {}
+    return id;
+  }
   $('rsvpForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     if (sending) return;
@@ -273,13 +350,14 @@
       const payload = { group: FACULTY ? 'faculty' : 'student', fullName, section, attendance, paymentMethod: method, reason: attendance === 'Not attending' ? reason : '', proof, website: '' };
       const amount = attendance === 'Attending' ? FEE : 0;
       if (preview) return showAcknowledgment({ ...payload, amount, receiptId: `DEMO-${Date.now().toString(36).toUpperCase()}`, saved: false });
+      payload.requestId = await requestIdFor(payload);
       // text/plain keeps this a "simple" request, so the browser sends it straight away (no pre-check round trip).
       const data = await callApi(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }, 45000);
       if (data.ok === true) showAcknowledgment({ ...payload, amount, receiptId: data.receiptId, saved: true });
       else if (data.notReady) error('The SSC records are being updated. Please try again in a few minutes.');
       else error(data.message || 'Your reply could not be saved. Please try again.');
     } catch (err) {
-      error(err && err.name === 'AbortError' ? 'Sending took too long. Please check your signal and try again.' : (err && err.message) || 'No connection. Please try again.');
+      error(err && err.name === 'AbortError' ? 'We could not confirm your reply yet. Please check your signal and send the same reply again.' : (err && err.message) || 'No connection. Please try again.');
     } finally {
       sending = false;
       $('submitBtn').disabled = false;

@@ -268,3 +268,16 @@ textarea:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgb
 #reasonWrap .field-help{color:var(--oxblood);font-style:italic}
 .form-field>label small{font-weight:400;color:var(--ink-faint)}
 .invite-inside{margin:0 auto 14px;max-width:24em;padding:10px 12px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);font:italic 1rem/1.4 var(--serif);color:var(--oxblood)}
+
+/* Fold the invitation in thirds, then lift the reply slip from the open pocket. */
+.paper-fold{position:fixed;perspective:1600px;pointer-events:none;transform-origin:center;z-index:1}
+.fold-panel{position:absolute;left:0;width:100%;height:33.333334%;transform-style:preserve-3d}
+.fold-panel-0{top:0;transform-origin:center bottom;z-index:2}
+.fold-panel-1{top:33.333333%;z-index:1}
+.fold-panel-2{top:66.666666%;transform-origin:center top;z-index:3}
+.fold-face,.fold-back{position:absolute;inset:0;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--paper)}
+.fold-back{transform:rotateX(180deg);background:linear-gradient(0deg,rgba(90,60,25,.16),transparent 14%,rgba(255,250,236,.1)),url('assets/paper.jpg') center/cover;box-shadow:inset 0 0 0 1px rgba(100,70,30,.25),0 4px 12px rgba(0,0,0,.25)}
+.env-reply{position:absolute;left:7%;right:7%;top:6%;height:86%;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:12% 8px 8px;gap:8px;text-align:center;will-change:transform}
+.env-reply:before{content:'';position:absolute;inset:9px;border:1px solid var(--rule)}
+.env-reply strong{font:600 clamp(1.2rem,5.3vw,1.7rem)/1.15 var(--serif);color:var(--oxblood)}
+.env-reply>span:last-child{font:italic .9rem var(--serif);color:var(--ink-soft)}

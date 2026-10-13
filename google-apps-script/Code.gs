@@ -97,7 +97,7 @@ function book_() {
 
 /* ---------- Web endpoints ---------- */
 function doGet() {
-  return json_({ ok: true, message: 'Panaghimamat RSVP is running.' }); // also used as a warm-up ping
+  return json_({ ok: true, version: '2026-10-14-idempotent', message: 'Panaghimamat RSVP is running.' });
 }
 
 function doPost(e) {
@@ -135,26 +135,93 @@ function save_(d) {
   if (!attending && reason.length < 3) fail_('Please give a short reason for not attending.');
 
   let payment = 'Not attending';
-  let screenshot = '';
+  const online = attending && (method === 'GCash' || method === 'Bank Transfer');
   if (attending) {
-    const online = method === 'GCash' || method === 'Bank Transfer';
     if (!online && method !== 'Cash') fail_('Please choose how you will pay.');
     payment = method === 'Cash' ? 'Cash · not yet paid' : method === 'GCash' ? 'GCash · check screenshot' : 'GoTyme · check screenshot';
-    if (online) screenshot = '=HYPERLINK("' + saveScreenshot_(d.proof, name) + '","View")';
   }
 
+  // Old cached pages still work: identical replies also match by fingerprint.
+  const requestId = text(d.requestId, 100);
+  if (requestId && !/^[a-zA-Z0-9-]{16,100}$/.test(requestId)) fail_('Please refresh the invitation and try again.');
+  const fingerprint = hash_(JSON.stringify([
+    group, name.toLowerCase(), group === 'student' ? section : '', attending,
+    attending ? method : '', attending ? '' : reason,
+    online && d.proof ? [d.proof.mime, hash_(String(d.proof.base64 || ''))] : null
+  ]));
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(25000)) fail_('The SSC records are busy. Please send the same reply again in a moment.');
+  try {
+    return saveLocked_({ group, name, section, attending, payment, reason, online, proof: d.proof, requestId, fingerprint });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function hash_(value) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, value, Utilities.Charset.UTF_8)
+    .map((b) => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+}
+
+// Add metadata at the right edge. Never shift existing columns, formulas or records.
+function referenceColumns_(sheet) {
+  const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const columns = {};
+  ['Reference', 'Request ID', 'Reply fingerprint'].forEach((title) => {
+    let column = headers.indexOf(title) + 1;
+    if (!column) {
+      column = headers.length + 1;
+      if (column > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), 1);
+      sheet.getRange(5, column).setValue(title).setBackground(WINE).setFontColor(CREAM).setFontWeight('bold');
+      sheet.setColumnWidth(column, title === 'Reference' ? 300 : 180);
+      headers.push(title);
+    }
+    columns[title] = column;
+  });
+  columns.width = headers.length;
+  return columns;
+}
+
+function findReply_(sheet, column, value) {
+  const count = sheet.getLastRow() - 5;
+  if (!value || count < 1) return null;
+  return sheet.getRange(6, column, count, 1).createTextFinder(value)
+    .matchEntireCell(true).matchCase(true).useRegularExpression(false).findNext();
+}
+
+function saveLocked_(d) {
+  const { group, name, section, attending, payment, reason, online, proof, requestId, fingerprint } = d;
   const safe = (s) => (/^[=+\-@]/.test(s) ? "'" + s : s); // keep typed text from acting as a formula
   const book = book_();
-  const row = [new Date(), safe(name)];
-  if (group === 'student') row.push(safe(section));
-  row.push(attending ? 'Yes' : 'No', attending ? FEE[group] : '', payment, screenshot, attending ? '' : safe(reason));
   const sheet = group === 'student'
     ? (book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'))
     : book.getSheetByName(FACULTY);
   if (!sheet) fail_('The SSC records are being set up. Please try again later.');
+  const columns = referenceColumns_(sheet);
+  const byId = findReply_(sheet, columns['Request ID'], requestId);
+  if (byId && sheet.getRange(byId.getRow(), columns['Reply fingerprint']).getValue() !== fingerprint) {
+    fail_('This reply has changed. Please refresh the invitation before sending it again.');
+  }
+  const existing = byId || findReply_(sheet, columns['Reply fingerprint'], fingerprint);
+  if (existing) {
+    // Do not overwrite an officer's payment verification or upload the proof again.
+    const reference = sheet.getRange(existing.getRow(), columns.Reference).getValue();
+    SpreadsheetApp.flush();
+    return reference;
+  }
+  const screenshot = online ? '=HYPERLINK("' + saveScreenshot_(proof, name) + '","View")' : '';
+  const receiptId = 'PH26-' + Utilities.getUuid().replace(/-/g, '').toUpperCase();
+  const row = [new Date(), safe(name)];
+  if (group === 'student') row.push(safe(section));
+  row.push(attending ? 'Yes' : 'No', attending ? FEE[group] : '', payment, screenshot, attending ? '' : safe(reason));
+  while (row.length < columns.width) row.push('');
+  row[columns.Reference - 1] = receiptId;
+  row[columns['Request ID'] - 1] = requestId;
+  row[columns['Reply fingerprint'] - 1] = fingerprint;
   sheet.appendRow(row);
+  SpreadsheetApp.flush(); // commit reply + reference together before releasing the lock
   sheet.getRange(sheet.getLastRow(), 1).setNumberFormat('mmm d, h:mm am/pm'); // appendRow resets the date style
-  return 'PH26-' + Utilities.getUuid().slice(0, 6).toUpperCase();
+  return receiptId;
 }
 
 function saveScreenshot_(proof, name) {
