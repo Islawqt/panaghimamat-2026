@@ -28,44 +28,25 @@
         <feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="7" result="n"/>
         <feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G"/>
       </filter>
-      <filter id="waxEdge" x="-10%" y="-10%" width="120%" height="120%">
-        <feTurbulence type="fractalNoise" baseFrequency=".09" numOctaves="2" seed="3" result="n"/>
-        <feDisplacementMap in="SourceGraphic" in2="n" scale="6"/>
-      </filter>
-      <radialGradient id="waxBody" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#a6323a"/><stop offset=".45" stop-color="#7d1a24"/><stop offset="1" stop-color="#4c0c13"/></radialGradient>
-      <radialGradient id="waxPetal" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#9c2b33"/><stop offset="1" stop-color="#5b111a"/></radialGradient>
-      <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d9a0"/><stop offset=".45" stop-color="#b98d45"/><stop offset="1" stop-color="#6e4d1f"/></linearGradient>
-      <linearGradient id="satin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a1e2b"/><stop offset=".5" stop-color="#5a0f18"/><stop offset="1" stop-color="#3a070d"/></linearGradient>
-      <symbol id="sealArt" viewBox="0 0 100 100">
-        <g filter="url(#waxEdge)"><circle cx="50" cy="50" r="46" fill="url(#waxBody)"/></g>
-        <circle cx="50" cy="50" r="35" fill="none" stroke="#4a0a11" stroke-opacity=".55" stroke-width="2"/>
-        <circle cx="50" cy="50" r="34" fill="none" stroke="#c45a5f" stroke-opacity=".25" stroke-width="1"/>
-        <g fill="url(#waxPetal)" stroke="#45080f" stroke-opacity=".6" stroke-width=".8">
-          <ellipse cx="50" cy="33" rx="9" ry="15"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(45 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(90 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(135 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(180 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(225 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(270 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(315 50 50)"/>
-          <ellipse cx="50" cy="40" rx="6" ry="10" transform="rotate(22 50 50)"/><ellipse cx="50" cy="40" rx="6" ry="10" transform="rotate(112 50 50)"/><ellipse cx="50" cy="40" rx="6" ry="10" transform="rotate(202 50 50)"/><ellipse cx="50" cy="40" rx="6" ry="10" transform="rotate(292 50 50)"/>
-        </g>
-        <circle cx="50" cy="50" r="6" fill="#5e1019"/>
-        <g fill="#c8636a" fill-opacity=".55"><circle cx="50" cy="45.5" r="1.2"/><circle cx="54" cy="48" r="1.2"/><circle cx="54" cy="52" r="1.2"/><circle cx="50" cy="54.5" r="1.2"/><circle cx="46" cy="52" r="1.2"/><circle cx="46" cy="48" r="1.2"/></g>
-        <ellipse cx="36" cy="28" rx="12" ry="6" fill="#fff" fill-opacity=".12" transform="rotate(-30 36 28)"/>
-      </symbol>
+      <pattern id="paperFill" patternUnits="userSpaceOnUse" width="1580" height="1000"><image href="assets/paper.jpg" width="1580" height="1000" preserveAspectRatio="xMidYMid slice"/></pattern>
+      <filter id="foldShadow" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#3a2410" flood-opacity=".38"/></filter>
+      <filter id="foldShadowUp" x="-5%" y="-15%" width="110%" height="120%"><feDropShadow dx="0" dy="-5" stdDeviation="7" flood-color="#3a2410" flood-opacity=".32"/></filter>
+      <linearGradient id="sideL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#6b4a22" stop-opacity=".22"/></linearGradient>
+      <linearGradient id="sideR" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".02"/><stop offset="1" stop-color="#6b4a22" stop-opacity=".28"/></linearGradient>
+      <linearGradient id="bottomLight" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#6b4a22" stop-opacity=".08"/></linearGradient>
+      <linearGradient id="flapLight" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b4a22" stop-opacity=".12"/><stop offset=".6" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#6b4a22" stop-opacity=".18"/></linearGradient>
     </defs>
   </svg>
   <div class="velvet" aria-hidden="true"></div>
-  <div class="decor decor-bow" aria-hidden="true">
-    <svg viewBox="0 0 220 200"><path d="M110 60 C70 10 10 10 20 50 C28 82 80 80 110 62 Z" fill="url(#satin)"/><path d="M110 60 C150 10 210 10 200 50 C192 82 140 80 110 62 Z" fill="url(#satin)"/><path d="M104 64 L60 190 L78 182 L92 196 L114 70 Z" fill="url(#satin)"/><path d="M116 64 L150 186 L134 180 L122 194 L106 70 Z" fill="#4a0b12"/><ellipse cx="110" cy="62" rx="14" ry="12" fill="#6c1420"/><path d="M40 30 C60 22 85 36 102 56" stroke="#b44a55" stroke-opacity=".35" stroke-width="3" fill="none"/></svg>
-    <svg class="key" viewBox="0 0 60 200"><g fill="url(#gold)"><circle cx="30" cy="26" r="20"/><rect x="26" y="40" width="8" height="130" rx="2"/><rect x="34" y="140" width="16" height="8"/><rect x="34" y="156" width="12" height="8"/><rect x="20" y="58" width="20" height="6" rx="3"/></g><g fill="none" stroke="#5a3b14" stroke-width="2"><circle cx="30" cy="26" r="11"/><path d="M30 10 V42 M14 26 H46"/><circle cx="30" cy="26" r="16" stroke-opacity=".5"/></g></svg>
-  </div>
   <div class="preview-ribbon" id="previewRibbon" hidden><strong>Test preview</strong> · Responses are not saved yet</div>
 
   <div class="app-shell">
     <header class="masthead">
-      <a class="brand" href="#welcome" id="brandHome" aria-label="Back to the envelope">
-        <img src="assets/sti-logo.png" alt="" width="36" height="36">
-        <span><strong>STI College</strong><small>Valencia</small></span>
+      <a class="brand" href="#welcome" id="brandHome" aria-label="STI College Valencia, back to the envelope">
+        <img src="assets/sti-logo.png" alt="" width="34" height="34"><strong>STI College Valencia</strong>
       </a>
       <span class="brand brand-right">
-        <span><strong>Supreme Student Council</strong><small>STI College Valencia</small></span>
-        <img src="assets/ssc-logo.png" alt="Supreme Student Council logo" width="36" height="36">
+        <strong>Supreme Student Council</strong><img src="assets/ssc-logo.png" alt="Supreme Student Council logo" width="34" height="34">
       </span>
     </header>
 
@@ -86,10 +67,24 @@
               <span class="mini-rule"></span>
               <span class="mini-date">23 October 2026</span>
             </div>
-            <div class="env-pocket"><span class="env-address">To our dear teachers &amp; fellow students</span></div>
-            <div class="env-flap"></div>
+            <svg class="env-pocket" viewBox="0 0 1580 1000" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M0 0 L768 548 Q790 562 768 576 L0 1000 Z" fill="url(#paperFill)" filter="url(#foldShadow)"/>
+              <path d="M0 0 L768 548 Q790 562 768 576 L0 1000 Z" fill="url(#sideL)"/>
+              <path d="M1580 0 L812 548 Q790 562 812 576 L1580 1000 Z" fill="url(#paperFill)" filter="url(#foldShadow)"/>
+              <path d="M1580 0 L812 548 Q790 562 812 576 L1580 1000 Z" fill="url(#sideR)"/>
+              <path d="M0 1000 L758 490 Q790 468 822 490 L1580 1000 Z" fill="url(#paperFill)" filter="url(#foldShadowUp)"/>
+              <path d="M0 1000 L758 490 Q790 468 822 490 L1580 1000 Z" fill="url(#bottomLight)"/>
+            </svg>
+            <span class="env-address">To our dear teachers &amp; fellow students</span>
+            <div class="env-flap">
+              <svg class="flap-front" viewBox="0 0 1580 640" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M0 0 L1580 0 L832 594 Q790 626 748 594 Z" fill="url(#paperFill)" filter="url(#foldShadow)"/>
+                <path d="M0 0 L1580 0 L832 594 Q790 626 748 594 Z" fill="url(#flapLight)"/>
+              </svg>
+              <div class="flap-back"></div>
+            </div>
             <button class="seal" id="sealButton" type="button" aria-haspopup="dialog" aria-controls="invitationCard">
-              <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#sealArt"/></svg>
+              <img src="assets/wax-seal.png" alt="" width="320" height="320">
               <span class="sr-only">Open the invitation</span>
             </button>
           </div>
@@ -150,6 +145,12 @@
           <p class="test-warning" data-test-only hidden>Test preview: please don’t send money yet. Payments open once the SSC confirms the site is live.</p>
         </div>
 
+        <aside class="paper paper-card disclosure" aria-labelledby="safetyTitle">
+          <p class="card-label" id="safetyTitle">A note on safety</p>
+          <p>This invitation is hosted on <strong>GitHub Pages</strong>, a free website host. The site itself never receives or holds money. Every payment goes <strong>directly to the SSC officers</strong>: by GCash or GoTyme to the President’s own account, or in cash to the Treasurer or President.</p>
+          <p>Your reply and payment screenshot are saved only to the SSC’s private Google Sheet and Drive, and are used for this event alone.</p>
+        </aside>
+
         <p class="small-note centered">Prefer cash? That’s fine. Just choose <em>Cash</em> on the next page and pay the Treasurer or the President before October 19.</p>
       </section>
 
@@ -165,6 +166,12 @@
           <fieldset><legend>I am a <span aria-hidden="true">*</span></legend>
             <div class="choice-grid"><label class="choice"><input type="radio" name="role" value="Student" required><span>Student</span></label><label class="choice"><input type="radio" name="role" value="Faculty" required><span>Faculty</span></label></div>
           </fieldset>
+
+          <div class="faculty-check" id="facultyCheck" hidden>
+            <label for="facultyCode">Faculty verification code <span aria-hidden="true">*</span></label>
+            <div class="code-row"><input id="facultyCode" type="text" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Code from the SSC"><button type="button" class="verify-btn" id="verifyFaculty">Verify</button></div>
+            <small class="field-help" id="facultyStatus" role="status">The faculty rate needs a quick check since there is no log-in. Ask any SSC officer for the code.</small>
+          </div>
 
           <div class="form-field" id="affiliationWrap" hidden><label for="affiliation" id="affiliationLabel">Program / Year / Section <span aria-hidden="true">*</span></label><input id="affiliation" name="affiliation" type="text" maxlength="100" placeholder="e.g. BSIS 4A"></div>
 
@@ -219,6 +226,7 @@
       <button id="nextBtn" class="ghost-btn solid" type="button">Next →</button>
     </footer>
     <p class="footer-mark">Learn · Share · Serve · Create</p>
+    <p class="credit">by Julius · 2026</p>
   </div>
 
   <!-- THE INVITATION (opens from the envelope) -->

@@ -124,6 +124,7 @@ function styleGuide_(sheet) {
     ['Faculty','₱400 each. New responses arrive automatically on the Faculty tab.'],
     ['Cash','“Cash — to collect” means NOT paid; verify cash and update status manually.'],
     ['GCash / bank','“Online — pending verification” means a screenshot was submitted, NOT that payment cleared.'],
+    ['Faculty rate','Faculty replies are accepted only with the code saved in Script properties as FACULTY_CODE. Change it anytime; share it with faculty only.'],
     ['Payment verification','Guests do not type a reference number. Read it from their screenshot, enter it in “Transaction reference”, and check it against the receiving account. Only after confirmation set Status to “Verified — paid”.'],
     ['Payment screenshots','Stored in a PRIVATE Google Drive folder. Do not publicly share URLs or change the folder’s visibility.'],
     ['Privacy','Limit access to authorized SSC staff. Use records only for event coordination, collection tracking and verification.'],
@@ -139,8 +140,38 @@ function styleGuide_(sheet) {
   rows.forEach((_,i)=>sheet.setRowHeight(i+4,50));
 }
 
-function doGet() {
+function doGet(e) {
+  const action = e && e.parameter && e.parameter.action;
+  if (action === 'verifyFaculty') {
+    const result = verifyFaculty_(e.parameter.code);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  }
   return HtmlService.createHtmlOutput('<!doctype html><meta charset="utf-8"><p>Panaghimamat RSVP endpoint is active. Use the invitation form to submit.</p>');
+}
+
+/**
+ * Faculty verification. There is no log-in, so faculty prove their rate with a shared code.
+ * Set it in Project Settings > Script properties > FACULTY_CODE (never in the public repo).
+ */
+function normalizeCode_(value) {
+  return String(value == null ? '' : value).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 40);
+}
+function facultyCodeMatches_(value) {
+  const expected = normalizeCode_(PropertiesService.getScriptProperties().getProperty('FACULTY_CODE'));
+  const given = normalizeCode_(value);
+  if (!expected || given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i);
+  return diff === 0;
+}
+function verifyFaculty_(code) {
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get('faculty_fails') || 0);
+  if (fails >= 30) return { ok: false, message: 'Too many attempts. Please wait 10 minutes or ask an SSC officer.' };
+  if (!PropertiesService.getScriptProperties().getProperty('FACULTY_CODE')) return { ok: false, message: 'Faculty verification is not set up yet. Please contact the SSC.' };
+  if (facultyCodeMatches_(code)) return { ok: true };
+  cache.put('faculty_fails', String(fails + 1), 600);
+  return { ok: false, message: 'That code did not match. Please check with an SSC officer.' };
 }
 
 function doPost(e) {
@@ -153,7 +184,10 @@ function doPost(e) {
     const result = saveSubmission_(d);
     return reply_({type:'PANAGHIMAMAT_SUBMISSION',nonce,ok:true,receiptId:result.receiptId});
   } catch (ex) {
-    return reply_({type:'PANAGHIMAMAT_SUBMISSION',nonce,ok:false,message:'Unable to record this submission. Please contact the SSC or try again.'});
+    const message = ex && ex.message === 'FACULTY_UNVERIFIED'
+      ? 'Faculty verification failed. Please re-enter the code from the SSC.'
+      : 'Unable to record this submission. Please contact the SSC or try again.';
+    return reply_({type:'PANAGHIMAMAT_SUBMISSION',nonce,ok:false,message});
   }
 }
 
@@ -176,6 +210,7 @@ function saveSubmission_(d) {
   const attending = attendance === 'Attending';
   const allowedMethods = ['Cash','GCash','Bank Transfer'];
   if ((attending && !allowedMethods.includes(method)) || (!attending && method !== 'Not applicable')) throw Error('Invalid payment');
+  if (role === 'Faculty' && !facultyCodeMatches_(d.facultyCode)) throw Error('FACULTY_UNVERIFIED');
   const online = attending && ['GCash','Bank Transfer'].includes(method);
   if (!!d.proof !== online) throw Error('Missing or unexpected proof');
   // Recalculate the fee on the server. Never trust a submitted amount.

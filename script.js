@@ -183,25 +183,56 @@
   }
 
   /* ---------- Form ---------- */
+  const configured = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(config.sheetWebAppUrl || '');
+  const preview = testMode || !configured;
   function selected(name) { return document.querySelector(`[name="${name}"]:checked`)?.value || ''; }
+  let facultyVerified = false;
+  function setFacultyState(state, message) {
+    const box = $('facultyCheck');
+    facultyVerified = state === 'ok';
+    box.classList.toggle('is-verified', state === 'ok');
+    box.classList.toggle('is-error', state === 'error');
+    $('verifyFaculty').textContent = state === 'ok' ? 'Verified ✓' : state === 'busy' ? 'Checking…' : 'Verify';
+    $('verifyFaculty').disabled = state === 'busy';
+    if (message) $('facultyStatus').textContent = message;
+  }
+  async function verifyFaculty() {
+    const code = $('facultyCode').value.trim();
+    if (!code) return setFacultyState('error', 'Please enter the code from the SSC.');
+    if (!configured) return setFacultyState('error', 'Verification is offline right now. Please contact the SSC.');
+    setFacultyState('busy');
+    try {
+      const res = await fetch(`${config.sheetWebAppUrl}?action=verifyFaculty&code=${encodeURIComponent(code)}`, { method: 'GET', credentials: 'omit' });
+      const data = await res.json();
+      if (data && data.ok === true) setFacultyState('ok', 'Verified. The faculty rate of ₱400 applies.');
+      else setFacultyState('error', (data && data.message) || 'That code did not match.');
+    } catch {
+      setFacultyState('error', 'Could not reach the SSC records. Check your connection and try again.');
+    }
+    updatePayment();
+  }
+  $('verifyFaculty').addEventListener('click', verifyFaculty);
+  $('facultyCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); verifyFaculty(); } });
+  $('facultyCode').addEventListener('input', () => { if (facultyVerified || $('facultyCheck').classList.contains('is-error')) { setFacultyState('idle', 'Tap Verify to check the code.'); updatePayment(); } });
+
   function updatePayment() {
     const role = selected('role');
     const attending = selected('attendance') === 'Attending';
+    $('facultyCheck').hidden = role !== 'Faculty';
+    const rateOk = role === 'Student' || (role === 'Faculty' && facultyVerified);
     $('affiliationWrap').hidden = !role;
     $('affiliationLabel').innerHTML = role === 'Faculty' ? 'Department / Office <span aria-hidden="true">*</span>' : 'Program / Year / Section <span aria-hidden="true">*</span>';
     $('affiliation').placeholder = role === 'Faculty' ? 'e.g. IT Department' : 'e.g. BSIS 4A';
     $('affiliation').required = Boolean(role);
-    $('paymentFields').hidden = !attending || !role;
+    $('paymentFields').hidden = !attending || !rateOk;
     $('feeValue').textContent = role ? `₱${feeByRole[role]}` : '₱—';
     const method = selected('paymentMethod');
-    const online = attending && (method === 'GCash' || method === 'Bank Transfer');
+    const online = attending && rateOk && (method === 'GCash' || method === 'Bank Transfer');
     $('proofWrap').hidden = !online;
     $('proofImage').required = online && !testMode;
   }
   document.querySelectorAll('[name="role"],[name="attendance"],[name="paymentMethod"]').forEach((i) => i.addEventListener('change', updatePayment));
 
-  const configured = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(config.sheetWebAppUrl || '');
-  const preview = testMode || !configured;
   $('previewRibbon').hidden = !testMode;
   $('connectionStatus').textContent = preview ? 'Test preview: your reply will not be saved yet.' : '';
   $('submitBtn').textContent = preview ? 'Preview my reply' : 'Send my reply';
@@ -237,6 +268,7 @@
     const affiliation = $('affiliation').value.trim();
     const method = attendance === 'Attending' ? selected('paymentMethod') : 'Not applicable';
     if (fullName.length < 2 || !role || !attendance || !affiliation) return error('Please fill in your name, category, program or department, and attendance.');
+    if (role === 'Faculty' && !facultyVerified) return error('Please verify your faculty code first.');
     if (attendance === 'Attending' && !method) return error('Please choose how you will pay.');
     if (!$('consent').checked) return error('Please tick the agreement box to continue.');
     const isOnline = method === 'GCash' || method === 'Bank Transfer';
@@ -244,7 +276,7 @@
     if (isOnline && (!preview || $('proofImage').files.length)) {
       try { proof = await imageProof($('proofImage')); } catch (err) { return error(err.message); }
     }
-    const payload = { nonce: nonce(), fullName, role, affiliation, attendance, paymentMethod: method, amount: attendance === 'Attending' ? feeByRole[role] : 0, proof, website: '', clientDate: new Date().toISOString() };
+    const payload = { nonce: nonce(), fullName, role, affiliation, attendance, paymentMethod: method, facultyCode: role === 'Faculty' ? $('facultyCode').value.trim() : '', amount: attendance === 'Attending' ? feeByRole[role] : 0, proof, website: '', clientDate: new Date().toISOString() };
     if (preview) return showAcknowledgment({ ...payload, receiptId: `DEMO-${Date.now().toString(36).toUpperCase()}`, saved: false });
     $('submitBtn').disabled = true;
     $('submitBtn').textContent = 'Sending…';
