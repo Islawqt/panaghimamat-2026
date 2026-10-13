@@ -132,7 +132,7 @@ function styleGuide_(sheet) {
     ['Privacy','Limit access to authorized SSC staff. Use records only for event coordination, collection tracking and verification.'],
     ['Editing','Do not modify the submitted response ID, nonce, screenshot URL or personally identifiable data unless correcting an error.'],
     ['Event','Friday, October 23, 2026 · Regidor Country Homes · 1:00 PM to 5:00 PM.'],
-    ['Contribution period','October 7–19, 2026 · SSC Treasurer Ms. Jhodel Aranas or SSC President Anthony Sedoro (owner of the GCash/GoTyme QR).'],
+    ['Contribution period','October 7–19, 2026 · SSC Treasurer Ms. Jhodel Aranas or SSC President Ms. Anthony Sedoro (owner of the GCash/GoTyme QR).'],
     ['Publisher','Owned and administered by the SSC via the Google account that deploys this Apps Script.']
   ];
   sheet.getRange(4,2,rows.length,2).setValues(rows);
