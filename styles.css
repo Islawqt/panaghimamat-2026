@@ -193,8 +193,10 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
 /* ---------- The invitation card ---------- */
 .invite-layer{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:14px;
   background:rgba(18,2,5,.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
-.invite-card{position:relative;width:min(100%,460px);max-height:calc(100svh - 28px);overflow:auto;-webkit-overflow-scrolling:touch;outline:none;transform-origin:center center;will-change:transform}
-.invite-inner{margin:10px;padding:22px 16px 20px;border:1px solid rgba(155,110,50,.6);outline:3px double rgba(155,110,50,.35);outline-offset:-8px;text-align:center}
+.invite-card{position:relative;width:min(100%,460px);max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-width:none;outline:none;transform-origin:center center;will-change:transform;box-shadow:0 24px 60px rgba(0,0,0,.55),0 4px 12px rgba(0,0,0,.35)}
+.invite-card::-webkit-scrollbar{display:none}
+.invite-sheet{padding:10px;min-height:100%}
+.invite-inner{padding:22px 16px 20px;border:1px solid rgba(155,110,50,.6);outline:3px double rgba(155,110,50,.35);outline-offset:-8px;text-align:center}
 .invite-logos{display:flex;justify-content:center;gap:12px;margin-bottom:10px}
 .invite-logos img{width:38px;height:38px;object-fit:contain;filter:sepia(.4) saturate(.75)}
 .invite-from{margin:0;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;line-height:1.6;color:var(--ink-soft)}

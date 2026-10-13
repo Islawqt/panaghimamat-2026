@@ -159,7 +159,7 @@
         <p class="lead">Kindly let us know so we can prepare for you.</p>
 
         <form id="rsvpForm" class="paper paper-card form-card" novalidate>
-          <div class="form-field"><label for="fullName">Full name <span aria-hidden="true">*</span></label><input id="fullName" name="fullName" type="text" minlength="2" maxlength="100" autocomplete="name" placeholder="First and last name, e.g. Juan Dela Cruz" required></div>
+          <div class="form-field"><label for="fullName">Full name <span aria-hidden="true">*</span></label><input id="fullName" name="fullName" type="text" minlength="2" maxlength="100" autocomplete="name" placeholder="e.g. Stephen Dale Paubapo" required></div>
 
           <fieldset><legend>I am a <span aria-hidden="true">*</span></legend>
             <div class="choice-grid"><label class="choice"><input type="radio" name="role" value="Student" required><span>Student</span></label><label class="choice"><input type="radio" name="role" value="Faculty" required><span>Faculty</span></label></div>
@@ -234,39 +234,41 @@
 
   <!-- THE INVITATION (opens from the envelope) -->
   <div class="invite-layer" id="inviteLayer" hidden>
-    <div class="invite-card paper" id="invitationCard" role="dialog" aria-modal="true" aria-labelledby="inviteTitle" tabindex="-1">
-      <div class="invite-inner invite-content">
-        <div class="invite-logos"><img src="assets/sti-logo.png" alt="STI logo" width="40" height="40"><img src="assets/ssc-logo.png" alt="SSC logo" width="40" height="40"></div>
-        <p class="invite-from">The Supreme Student Council<br>of STI College Valencia</p>
-        <p class="invite-request">requests the pleasure of your company at the</p>
-        <p class="invite-script">Teachers’ Day Celebration</p>
-        <p class="invite-amp">&amp;</p>
-        <h2 id="inviteTitle" class="invite-title">Panaghimamat 2026</h2>
-        <p class="invite-tagline">an afternoon of gratitude and new friendships</p>
+    <div class="invite-card" id="invitationCard" role="dialog" aria-modal="true" aria-labelledby="inviteTitle" tabindex="-1">
+      <div class="invite-sheet paper">
+        <div class="invite-inner invite-content">
+          <div class="invite-logos"><img src="assets/sti-logo.png" alt="STI logo" width="40" height="40"><img src="assets/ssc-logo.png" alt="SSC logo" width="40" height="40"></div>
+          <p class="invite-from">The Supreme Student Council<br>of STI College Valencia</p>
+          <p class="invite-request">requests the pleasure of your company at the</p>
+          <p class="invite-script">Teachers’ Day Celebration</p>
+          <p class="invite-amp">&amp;</p>
+          <h2 id="inviteTitle" class="invite-title">Panaghimamat 2026</h2>
+          <p class="invite-tagline">an afternoon of gratitude and new friendships</p>
 
-        <div class="invite-theme" id="themeRow" hidden><span>Theme</span><strong id="themeValue"></strong></div>
+          <div class="invite-theme" id="themeRow" hidden><span>Theme</span><strong id="themeValue"></strong></div>
 
-        <div class="invite-date">
-          <span class="d-side">Friday</span>
-          <span class="d-mid"><small>October</small><b>23</b><small>2026</small></span>
-          <span class="d-side">1 – 5 PM</span>
+          <div class="invite-date">
+            <span class="d-side">Friday</span>
+            <span class="d-mid"><small>October</small><b>23</b><small>2026</small></span>
+            <span class="d-side">1 – 5 PM</span>
+          </div>
+          <p class="invite-time">from one o’clock until five in the afternoon</p>
+
+          <div class="invite-rule" aria-hidden="true">✦</div>
+
+          <p class="invite-venue"><strong>Regidor Country Homes</strong><br>Carnai, Valencia City, Bukidnon</p>
+
+          <p class="invite-contrib">Contribution: <strong>₱550</strong> students · <strong>₱400</strong> faculty<br><small>Collected October 7–19</small></p>
+
+          <p class="invite-links">
+            <a href="https://www.google.com/maps/search/?api=1&amp;query=Regidor%27s+Country+Home+Carnai+Valencia+Bukidnon" target="_blank" rel="noopener noreferrer">View map</a>
+
+          </p>
+
+          <p class="invite-motto">Learn · Share · Serve · Create</p>
+          <p class="invite-inside">Tucked behind this letter is your contribution slip and reply card. Close the envelope to settle your share and let us know if you’re coming.</p>
+          <button class="primary-btn" id="closeInvitation" type="button">Close the envelope</button>
         </div>
-        <p class="invite-time">from one o’clock until five in the afternoon</p>
-
-        <div class="invite-rule" aria-hidden="true">✦</div>
-
-        <p class="invite-venue"><strong>Regidor Country Homes</strong><br>Carnai, Valencia City, Bukidnon</p>
-
-        <p class="invite-contrib">Contribution: <strong>₱550</strong> students · <strong>₱400</strong> faculty<br><small>Collected October 7–19</small></p>
-
-        <p class="invite-links">
-          <a href="https://www.google.com/maps/search/?api=1&amp;query=Regidor%27s+Country+Home+Carnai+Valencia+Bukidnon" target="_blank" rel="noopener noreferrer">View map</a>
-
-        </p>
-
-        <p class="invite-motto">Learn · Share · Serve · Create</p>
-        <p class="invite-inside">Tucked behind this letter is your contribution slip and reply card. Close the envelope to settle your share and let us know if you’re coming.</p>
-        <button class="primary-btn" id="closeInvitation" type="button">Close the envelope</button>
       </div>
     </div>
   </div>
