@@ -5,7 +5,7 @@
   const $ = (id) => document.getElementById(id);
   const screens = [...document.querySelectorAll('.step')];
   const dots = [...document.querySelectorAll('.dots span')];
-  const feeByRole = { Student: 550, Faculty: 400 };
+  const FEE = 550; // per student
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const wait = (ms) => new Promise((r) => setTimeout(r, reduceMotion ? 0 : ms));
   let step = 0;
@@ -188,7 +188,6 @@
   const preview = testMode || !configured;
   const selected = (name) => document.querySelector(`[name="${name}"]:checked`)?.value || '';
   const cleanName = () => $('fullName').value.trim().replace(/\s+/g, ' ');
-  const nameKey = (v) => v.trim().toLowerCase().replace(/\s+/g, ' ');
 
   // Small JSON helper with a time limit, so a slow signal never hangs the page.
   async function callApi(url, options = {}, ms = 20000) {
@@ -204,55 +203,19 @@
   let warmed = false;
   function warmUp() { if (warmed || !configured) return; warmed = true; fetch(`${API}?action=ping`, { credentials: 'omit' }).catch(() => {}); }
 
-  /* Faculty check: the name is matched against the SSC's Faculty List */
-  let facultyVerified = false;
-  let verifiedName = '';
-  function setFacultyState(state, message) {
-    const box = $('facultyCheck');
-    facultyVerified = state === 'ok';
-    box.classList.toggle('is-verified', state === 'ok');
-    box.classList.toggle('is-error', state === 'error');
-    $('verifyFaculty').textContent = state === 'ok' ? 'Verified ✓' : state === 'busy' ? 'Checking…' : 'Verify my name';
-    $('verifyFaculty').disabled = state === 'busy';
-    if (message) $('facultyStatus').textContent = message;
-  }
-  async function verifyFaculty() {
-    const name = cleanName();
-    if (name.split(' ').length < 2) { $('fullName').focus(); return setFacultyState('error', 'Type your full name (first and last name) in the name box first.'); }
-    if (!configured) return setFacultyState('error', 'Faculty check is not available right now. Please message an SSC officer.');
-    setFacultyState('busy', 'Checking the faculty list…');
-    try {
-      const data = await callApi(`${API}?action=verifyFaculty&name=${encodeURIComponent(name)}`, {}, 15000);
-      if (data.ok === true) { verifiedName = nameKey(name); setFacultyState('ok', 'Verified. The faculty rate of ₱400 applies.'); }
-      else if (data.notReady) setFacultyState('error', 'Faculty check is not ready yet. Please try again later or message an SSC officer.');
-      else setFacultyState('error', data.message || 'Your name is not on the faculty list yet.');
-    } catch {
-      setFacultyState('error', 'No connection. Please check your signal and tap verify again.');
-    }
-    updatePayment();
-  }
-  $('verifyFaculty').addEventListener('click', verifyFaculty);
-  $('fullName').addEventListener('input', () => {
-    if (facultyVerified && nameKey($('fullName').value) !== verifiedName) { setFacultyState('idle', 'Your name changed. Tap verify again.'); updatePayment(); }
-  });
-  $('fullName').addEventListener('change', () => { if (selected('role') === 'Faculty' && !facultyVerified && cleanName().split(' ').length >= 2) verifyFaculty(); });
+  const cleanSection = () => $('section').value.trim().replace(/\s+/g, ' ').toUpperCase();
+  $('section').addEventListener('blur', () => { $('section').value = cleanSection(); });
 
   function updatePayment() {
-    const role = selected('role');
     const attendance = selected('attendance');
     const attending = attendance === 'Attending';
-    $('facultyCheck').hidden = role !== 'Faculty';
-    const rateOk = role === 'Student' || (role === 'Faculty' && facultyVerified);
     $('reasonWrap').hidden = attendance !== 'Not attending';
-    $('paymentFields').hidden = !attending || !rateOk;
-    $('feeValue').textContent = role ? `₱${feeByRole[role]}` : '₱—';
+    $('paymentFields').hidden = !attending;
+    $('feeValue').textContent = `₱${FEE}`;
     const method = selected('paymentMethod');
-    $('proofWrap').hidden = !(attending && rateOk && (method === 'GCash' || method === 'Bank Transfer'));
+    $('proofWrap').hidden = !(attending && (method === 'GCash' || method === 'Bank Transfer'));
   }
-  document.querySelectorAll('[name="role"],[name="attendance"],[name="paymentMethod"]').forEach((i) => i.addEventListener('change', updatePayment));
-  document.querySelectorAll('[name="role"]').forEach((i) => i.addEventListener('change', () => {
-    if (i.value === 'Faculty' && i.checked && !facultyVerified && cleanName().split(' ').length >= 2) verifyFaculty();
-  }));
+  document.querySelectorAll('[name="attendance"],[name="paymentMethod"]').forEach((i) => i.addEventListener('change', updatePayment));
 
   $('previewRibbon').hidden = !testMode;
   $('connectionStatus').textContent = preview ? 'Test preview: your reply will not be saved yet.' : '';
@@ -288,12 +251,13 @@
     clearError();
     if ($('companyWebsite').value) return;
     const fullName = cleanName();
-    const role = selected('role');
+    const section = cleanSection();
     const attendance = selected('attendance');
     const method = attendance === 'Attending' ? selected('paymentMethod') : '';
     const reason = $('reason').value.trim().replace(/\s+/g, ' ');
-    if (fullName.split(' ').length < 2 || !role || !attendance) return error('Please fill in your full name, type, and attendance.');
-    if (role === 'Faculty' && (!facultyVerified || nameKey(fullName) !== verifiedName)) return error('Please verify your name on the faculty list first.');
+    if (fullName.split(' ').length < 2) return error('Please type your full name (first and last name).');
+    if (section.length < 2) return error('Please type your year and section, e.g. BSIS 4A.');
+    if (!attendance) return error('Please tell us if you can attend.');
     if (attendance === 'Not attending' && reason.length < 3) return error('Please give a short reason for not attending.');
     if (attendance === 'Attending' && !method) return error('Please choose how you will pay.');
     if (!$('consent').checked) return error('Please tick the agreement box to continue.');
@@ -304,8 +268,8 @@
     try {
       let proof = null;
       if (isOnline && (!preview || $('proofImage').files.length)) proof = await imageProof($('proofImage'));
-      const payload = { fullName, role, attendance, paymentMethod: method, reason: attendance === 'Not attending' ? reason : '', proof, website: '' };
-      const amount = attendance === 'Attending' ? feeByRole[role] : 0;
+      const payload = { fullName, section, attendance, paymentMethod: method, reason: attendance === 'Not attending' ? reason : '', proof, website: '' };
+      const amount = attendance === 'Attending' ? FEE : 0;
       if (preview) return showAcknowledgment({ ...payload, amount, receiptId: `DEMO-${Date.now().toString(36).toUpperCase()}`, saved: false });
       // text/plain keeps this a "simple" request, so the browser sends it straight away (no pre-check round trip).
       const data = await callApi(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }, 45000);
@@ -329,7 +293,7 @@
     $('replyBody').textContent = !d.saved
       ? 'This is a test preview. Nothing was saved and no payment was recorded.'
       : attending ? 'We look forward to celebrating with you on October 23.' : 'Thank you for letting us know. You will be missed.';
-    const rows = [['Reference', d.receiptId], ['Name', d.fullName], ['Type', d.role], ['Attending', attending ? 'Yes' : 'No']];
+    const rows = [['Reference', d.receiptId], ['Name', d.fullName], ['Year & section', d.section], ['Attending', attending ? 'Yes' : 'No']];
     if (attending) rows.push(['Payment', d.paymentMethod === 'Bank Transfer' ? 'GoTyme' : d.paymentMethod], ['Contribution', `₱${d.amount}`], ['Status', online ? 'Pending verification' : 'Cash, to be paid']);
     $('receiptDetails').replaceChildren(...rows.map(([k, v]) => { const w = document.createElement('div'); const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = String(v); w.append(dt, dd); return w; }));
     $('receiptFooter').textContent = !d.saved ? 'Sample only. Not saved or validated.' : 'Event acknowledgment only, not an official receipt. Online payments are checked by the SSC.';

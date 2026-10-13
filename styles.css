@@ -117,10 +117,10 @@ main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:14
 .small-note.centered{color:var(--cream-soft);max-width:30em;margin:2px auto 0}
 .small-note.centered em{color:var(--gold-soft)}
 
-.price-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
-.price{text-align:center;border:1px solid rgba(201,162,92,.45);background:rgba(0,0,0,.18);padding:12px 6px}
-.price small{display:block;font-size:.66rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
-.price strong{display:block;font:500 2.3rem/1.1 var(--serif);color:var(--cream)}
+.price-single{position:relative;width:min(100%,300px);margin:0 auto 20px;padding:16px 12px 14px;text-align:center;border:1px solid rgba(201,162,92,.55);background:rgba(0,0,0,.22);outline:1px solid rgba(201,162,92,.25);outline-offset:4px}
+.price-single small{display:block;font-size:.66rem;letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+.price-single strong{display:block;font:500 3rem/1.05 var(--serif);color:var(--cream);margin:2px 0}
+.price-single span{display:block;font:italic .95rem var(--serif);color:var(--cream-soft)}
 .collection{text-align:center;margin:0;font:1.2rem var(--serif)}
 .collection span{font-style:italic;color:var(--ink-faint);margin:0 4px}
 .payees{display:grid;gap:8px}
@@ -232,7 +232,7 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
   .cover-line{max-width:none}
   .paper-card{padding:30px 32px 26px}
   .payees{grid-template-columns:1fr 1fr}
-  .price strong{font-size:2.7rem}
+  .price-single strong{font-size:3.4rem}
   .seal{width:88px;height:88px;margin:-45px 0 0 -44px}
   .mini-title{font-size:1.8rem}
   .invite-inner{padding:28px 30px 24px}
@@ -259,14 +259,6 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
 }
 
 /* ---------- Faculty check, safety note, credit ---------- */
-.faculty-check{margin:0 0 16px;padding:12px;border:1px dashed rgba(110,75,35,.5);background:rgba(255,251,240,.35)}
-.faculty-title{margin:0 0 4px;font-weight:600;font-size:.95rem}
-.faculty-check .field-help{margin:0 0 10px}
-.verify-btn{width:100%;min-height:48px;padding:0 16px;border:1px solid var(--oxblood);background:var(--oxblood);color:#f6e9d2;font:500 .78rem var(--body);letter-spacing:.12em;text-transform:uppercase}
-.faculty-check.is-verified{border-style:solid;border-color:#5f7a4a;background:rgba(95,122,74,.08)}
-.faculty-check.is-verified .verify-btn{background:#5f7a4a;border-color:#5f7a4a}
-.faculty-check.is-error #facultyStatus{color:var(--oxblood)}
-.faculty-check.is-verified #facultyStatus{color:#3f5a2e}
 .disclosure p{margin:8px 0 0;font-size:.92rem;line-height:1.5;text-align:center}
 .disclosure p:first-of-type{margin-top:0}
 .credit{text-align:center;margin:4px 0 0;font:italic .62rem var(--serif);letter-spacing:.08em;color:rgba(226,199,143,.5)}
