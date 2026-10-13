@@ -1,0 +1,16 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Islawqt//Panaghimamat 2026 Invitation//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:panaghimamat-2026@islawqt.github.io
+DTSTAMP:20261013T000000Z
+DTSTART;VALUE=DATE:20261022
+DTEND;VALUE=DATE:20261023
+SUMMARY:Teachers' Day Celebration and Panaghimamat 2026
+DESCRIPTION:STI College Valencia Supreme Student Council. Event time to be announced. Contributions: Students PHP 550; Faculty PHP 400. Collection deadline: October 19.
+LOCATION:Regidor Country Homes\, Carnai\, Valencia City\, Bukidnon\, Philippines
+STATUS:CONFIRMED
+END:VEVENT
+END:VCALENDAR

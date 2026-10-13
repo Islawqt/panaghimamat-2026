@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-label="GCash placeholder, not a QR code">
+ <rect width="480" height="480" fill="#f7f2e7"/><rect x="19" y="19" width="442" height="442" fill="none" stroke="#1879b8" stroke-width="3"/>
+ <rect x="37" y="37" width="406" height="406" fill="none" stroke="#c8b88f" stroke-width="1"/>
+ <text x="240" y="99" text-anchor="middle" fill="#1879b8" font-family="Georgia,serif" font-size="37">GCash</text>
+ <path d="M99 141h282M99 336h282" fill="none" stroke="#baa878" stroke-width="2"/>
+ <circle cx="240" cy="235" r="73" fill="none" stroke="#1879b8" stroke-width="5" stroke-dasharray="7 10"/>
+ <text x="240" y="228" fill="#1879b8" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="19">QR CODE</text>
+ <text x="240" y="254" fill="#1879b8" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="19">COMING SOON</text>
+ <text x="240" y="384" fill="#5a554a" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="21">TEST ONLY · DO NOT PAY</text>
+ <text x="240" y="409" fill="#6f6a61" text-anchor="middle" font-family="Arial,sans-serif" font-size="15">Demo payment illustration</text>
+</svg>
