@@ -2,7 +2,7 @@
    Do not put passwords, private spreadsheets, or confidential records here. */
 window.PANAGHIMAMAT_CONFIG = Object.freeze({
   siteOrigin: 'https://islawqt.github.io',
-  eventDate: '2026-10-22',
+  eventDate: '2026-10-23',
   testMode: true, // Explicitly disable real submissions until launch testing is complete.
   sheetWebAppUrl: '', // Set only after Google Apps Script is deployed and tested.
   onlinePaymentsEnabled: false, // Testing: never accept real payments or submissions here.
