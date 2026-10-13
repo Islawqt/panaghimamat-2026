@@ -3,6 +3,8 @@
 window.PANAGHIMAMAT_CONFIG = Object.freeze({
   siteOrigin: 'https://islawqt.github.io',
   eventDate: '2026-10-23',
+  eventTime: '1:00 PM to 5:00 PM',
+  eventTheme: '', // e.g. 'Vintage Elegance' — shows a Theme line inside the invitation when filled in
   testMode: true, // Explicitly disable real submissions until launch testing is complete.
   sheetWebAppUrl: '', // Set only after Google Apps Script is deployed and tested.
   onlinePaymentsEnabled: false, // Testing: never accept real payments or submissions here.

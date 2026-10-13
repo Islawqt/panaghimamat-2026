@@ -3,22 +3,22 @@
 **Project owner:** [Islawqt](https://github.com/Islawqt)  
 **Event organizer:** STI College Valencia Supreme Student Council
 
-An editorial, old-money-inspired, mobile-first invitation for the joint **Teachers’ Day Celebration and Panaghimamat 2026**.
+A vintage, cream-paper, mobile-first invitation for the joint **Teachers’ Day Celebration and Panaghimamat 2026**.
 
-- **Event:** Thursday, October 22, 2026
+- **Event:** Friday, October 23, 2026, 1:00 PM to 5:00 PM
 - **Venue:** Regidor Country Homes, Carnai, Valencia City, Bukidnon
 - **Student contribution:** ₱550
 - **Faculty contribution:** ₱400
-- **Collection:** October 7–19, 2026, through SSC Treasurer Ms. Jhodel Aranas
-- **Program start time:** To be announced
+- **Collection:** October 7–19, 2026, through SSC Treasurer Ms. Jhodel Aranas or directly to SSC President Anthony Sedoro (owner of the GCash/GoTyme QR)
 
 ## What is included
 
-- Five-screen interactive invitation (animated opening, event details, contributions, response form, acknowledgment).
+- Interactive envelope: tap the wax seal, the flap opens and the invitation card (date, time, venue, theme, contribution) slides out. Closing it seals the envelope again and unlocks the contribution and RSVP pages, which sit outside the envelope.
+- Event theme line inside the invitation is set with `eventTheme` in `config.js` (hidden while empty).
 - Separate student/faculty flows with the corresponding amounts.
 - Attending and not-attending RSVP branches.
 - Cash, GCash, and bank-transfer choices, currently running in **test mode with the genuine supplied GCash and GoTyme QR images (do NOT pay while testing)**.
-- Transaction reference and sample proof-image fields for testing online payment UI without sending money.
+- Online payers attach a screenshot only. Guests never type a reference number; the SSC reads it from the screenshot when verifying.
 - Two different records: bank/app screenshot proof and a separate **provisional SSC acknowledgment**. Acknowledgments are not official paid receipts.
 - Google Apps Script backend designed to store student and faculty replies in separate tabs, maintain an SSC dashboard, and keep uploaded screenshots in a restricted Drive folder.
 - Accessible, responsive interface with keyboard navigation and reduced-motion support.
@@ -65,7 +65,7 @@ The QR files in `assets/qr-gcash.png` and `assets/qr-gotyme.png` were cropped lo
 
 The original non-scannable SVG illustrations remain under `assets/` as fallback reference artwork, not as active payment URLs.
 
-Visitors select *Cash* to pledge in person; it remains `Cash — to collect` until the SSC confirms receipt. A visitor selecting online must add a transfer reference and payment screenshot; the SSC then verifies it and manually updates the status in the Sheet.
+Visitors select *Cash* to pledge in person; it remains `Cash — to collect` until the SSC confirms receipt. A visitor selecting online attaches a payment screenshot (no reference number to type); the SSC then verifies it and manually updates the status in the Sheet.
 
 ## Privacy and repo hygiene
 
@@ -77,7 +77,7 @@ Visitors select *Cash* to pledge in person; it remains `Cash — to collect` unt
 ## File map
 
 - `index.html` — invitation screens, event text, form, and accessible layout.
-- `styles.css` — old-money, emerald-and-ivory responsive design.
+- `styles.css` — vintage cream paper design (no background photos).
 - `script.js` — invitation transitions, conditional forms, validation, acknowledgment UI.
 - `config.js` — nonsecret public settings and verified QR configuration.
 - `assets/` — STI logo, favicon, social preview; includes original supplied QR crops; confirm payee before production use.

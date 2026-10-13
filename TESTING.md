@@ -7,11 +7,11 @@
 
 1. Open `index.html` locally or visit the published GitHub Pages address after enabling Pages.
 2. Confirm the gold **TEST PREVIEW** banner appears above the invitation.
-3. Open the invitation; verify the date (**October 22, 2026**) and venue (**Regidor Country Homes**).
-4. Continue to contributions. Confirm **₱550 student**, **₱400 faculty**, and the **October 19** deadline.
-5. Continue to the RSVP form. Enter any *fake test name*, select **Student**, **Attending**, **GCash** and confirm the actual QR image is shown with a **DO NOT MAKE A TRANSFER** warning.
-6. Optionally enter a fake transaction reference and a sample screenshot. Select consent and submit.
-7. Verify the next screen says **PREVIEW — NOT SUBMITTED**, **DEMO ONLY · NOT SAVED**, and Print is disabled.
+3. Tap the wax seal; the invitation card must show **Friday, October 23, 2026**, **1:00 to 5:00 PM** and **Regidor Country Homes**. Close it and confirm the envelope re-seals and the Continue button appears.
+4. Continue to contributions. Confirm **₱550 student**, **₱400 faculty**, the **October 7–19** period, and that both the Treasurer and **President Anthony Sedoro** are listed as payees. Switch the GCash / GoTyme QR tabs.
+5. Continue to the RSVP form. Enter any *fake test name*, select **Student**, **Attending**, **GCash** and confirm only a screenshot upload appears (no reference-number field).
+6. Optionally attach a sample screenshot. Select consent and submit.
+7. Verify the next screen says **Preview only** and **Not saved**, and Print is disabled.
 8. Return and repeat as **Faculty**, **Attending**, **GoTyme Bank Transfer**. The amount must be **₱400**.
 9. Repeat with **Unable to attend**: no contribution/payment fields should appear.
 10. Check the same flow on a phone and desktop. Confirm keyboard navigation and readable text.

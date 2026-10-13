@@ -124,12 +124,12 @@ function styleGuide_(sheet) {
     ['Faculty','₱400 each. New responses arrive automatically on the Faculty tab.'],
     ['Cash','“Cash — to collect” means NOT paid; verify cash and update status manually.'],
     ['GCash / bank','“Online — pending verification” means a screenshot was submitted, NOT that payment cleared.'],
-    ['Payment verification','Check the official receiving account and transaction reference. Only after confirmation set Status to “Verified — paid”.'],
+    ['Payment verification','Guests do not type a reference number. Read it from their screenshot, enter it in “Transaction reference”, and check it against the receiving account. Only after confirmation set Status to “Verified — paid”.'],
     ['Payment screenshots','Stored in a PRIVATE Google Drive folder. Do not publicly share URLs or change the folder’s visibility.'],
     ['Privacy','Limit access to authorized SSC staff. Use records only for event coordination, collection tracking and verification.'],
     ['Editing','Do not modify the submitted response ID, nonce, screenshot URL or personally identifiable data unless correcting an error.'],
-    ['Event','Friday, October 23, 2026 · Regidor Country Homes · 5:30 PM to 10:00 PM.'],
-    ['Contribution period','October 7–19, 2026 · SSC Treasurer Ms. Jhodel Aranas.'],
+    ['Event','Friday, October 23, 2026 · Regidor Country Homes · 1:00 PM to 5:00 PM.'],
+    ['Contribution period','October 7–19, 2026 · SSC Treasurer Ms. Jhodel Aranas or SSC President Anthony Sedoro (owner of the GCash/GoTyme QR).'],
     ['Publisher','Owned and administered by the SSC via the Google account that deploys this Apps Script.']
   ];
   sheet.getRange(4,2,rows.length,2).setValues(rows);

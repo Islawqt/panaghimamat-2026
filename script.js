@@ -4,212 +4,215 @@
   const testMode = config.testMode === true;
   const $ = (id) => document.getElementById(id);
   const screens = [...document.querySelectorAll('.step')];
-  const dots = [...document.querySelectorAll('.step-dots span')];
-  const roleInputs = [...document.querySelectorAll('[name="role"]')];
-  const attendanceInputs = [...document.querySelectorAll('[name="attendance"]')];
-  const methodInputs = [...document.querySelectorAll('[name="paymentMethod"]')];
-  let step = 0;
-  let invitationOpened = false;
-  let pending = null;
+  const dots = [...document.querySelectorAll('.dots span')];
   const feeByRole = { Student: 550, Faculty: 400 };
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wait = (ms) => new Promise((r) => setTimeout(r, reduceMotion ? 0 : ms));
+  let step = 0;
+  let busy = false;
+  let pending = null;
 
-  function selected(name) { return document.querySelector(`[name="${name}"]:checked`)?.value || ''; }
-  function setInvitationState(open) {
-    const env = $('invitationEnvelope');
-    const btn = $('openInvitation');
-    invitationOpened = open;
-    if (env) env.classList.toggle('is-open', open);
-    if (btn) btn.innerHTML = open ? 'Continue to the details <span aria-hidden="true">↗</span>' : 'Open the envelope <span aria-hidden="true">↗</span>';
-  }
-
+  /* ---------- Pages ---------- */
   function showStep(next) {
-    if (next < 0 || next > 4) return;
+    if (next < 0 || next > 3) return;
     step = next;
-    screens.forEach((screen, index) => {
-      screen.hidden = index !== next;
-      screen.classList.toggle('is-active', index === next);
-    });
-    dots.forEach((dot, index) => {
-      dot.classList.toggle('active', index === Math.min(next, 3));
-      dot.classList.toggle('done', index < next);
-    });
-    $('pager').hidden = next === 4;
-    $('backBtn').hidden = next === 0;
-    $('nextBtn').hidden = next === 0 || next >= 3;
-    document.querySelector('.app-shell').scrollIntoView({ behavior: 'instant' });
+    screens.forEach((s, i) => { s.hidden = i !== next; s.classList.toggle('is-active', i === next); });
+    dots.forEach((d, i) => d.classList.toggle('active', i === Math.min(next, 2)));
+    $('pager').hidden = next === 0 || next === 3;
+    $('nextBtn').style.visibility = next >= 2 ? 'hidden' : 'visible';
+    window.scrollTo({ top: 0 });
     $('mainContent').focus({ preventScroll: true });
-    if (next === 0) setInvitationState(false);
-    if (next === 3) $('fullName').focus({ preventScroll: true });
   }
-  $('openInvitation').addEventListener('click', () => {
-    if (!invitationOpened) setInvitationState(true);
-    else showStep(1);
-  });
   $('nextBtn').addEventListener('click', () => showStep(step + 1));
   $('backBtn').addEventListener('click', () => showStep(step - 1));
-  $('brandHome').addEventListener('click', (event) => {event.preventDefault();showStep(0)});
+  $('toPayment').addEventListener('click', () => showStep(1));
+  $('brandHome').addEventListener('click', (e) => { e.preventDefault(); showStep(0); });
   $('restartButton').addEventListener('click', () => showStep(0));
-  document.addEventListener('keydown', (event) => {
-    if (event.altKey || event.ctrlKey || event.metaKey || event.target?.matches('input,textarea,select')) return;
-    if (event.key === 'ArrowLeft' && step >= 1 && step <= 3) showStep(step - 1);
-    if (event.key === 'ArrowRight' && step >= 1 && step <= 2) showStep(step + 1);
+
+  /* ---------- Envelope ---------- */
+  const envelope = $('envelope');
+  const layer = $('inviteLayer');
+
+  if (config.eventTheme) {
+    $('themeValue').textContent = config.eventTheme;
+    $('themeRow').hidden = false;
+  }
+
+  async function openEnvelope() {
+    if (busy) return;
+    busy = true;
+    envelope.classList.remove('is-read');
+    envelope.classList.add('is-open');
+    await wait(1250); // seal lifts, flap swings open, letter slides out
+    layer.hidden = false;
+    $('invitationCard').scrollTop = 0;
+    $('invitationCard').focus();
+    busy = false;
+  }
+  async function closeEnvelope() {
+    if (busy || layer.hidden) return;
+    busy = true;
+    layer.classList.add('is-closing');
+    await wait(330);
+    layer.hidden = true;
+    layer.classList.remove('is-closing');
+    envelope.classList.remove('is-open'); // letter slides back, flap closes, seal returns
+    await wait(1100);
+    envelope.classList.add('is-read');
+    $('envelopeHint').hidden = true;
+    $('afterRead').hidden = false;
+    $('toPayment').focus();
+    busy = false;
+  }
+  $('sealButton').addEventListener('click', openEnvelope);
+  $('reopenEnvelope').addEventListener('click', openEnvelope);
+  $('closeInvitation').addEventListener('click', closeEnvelope);
+  layer.addEventListener('click', (e) => { if (e.target === layer) closeEnvelope(); });
+  document.addEventListener('keydown', (e) => {
+    if (layer.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeEnvelope(); }
+    if (e.key === 'Tab') { // keep focus inside the invitation while it is open
+      const items = [...layer.querySelectorAll('a,button')];
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === $('invitationCard'))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
   });
 
+  /* ---------- QR tabs ---------- */
+  const accounts = {
+    gcash: { img: config.gcash?.qrImage, name: config.gcash?.displayName, label: 'GCash number', number: config.gcash?.maskedNumber, alt: 'GCash QR code' },
+    bank: { img: config.bank?.qrImage, name: config.bank?.accountName, label: `${config.bank?.bankName || 'Bank'} account`, number: config.bank?.maskedNumber, alt: 'GoTyme Bank QR code' }
+  };
+  const tabs = [$('tabGcash'), $('tabBank')];
+  function selectAccount(key) {
+    const a = accounts[key];
+    tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.account === key)));
+    $('qrPanel').setAttribute('aria-labelledby', key === 'gcash' ? 'tabGcash' : 'tabBank');
+    if (a.img) $('qrImage').src = a.img;
+    $('qrImage').alt = `${a.alt} of ${a.name || 'Anthony Sedoro'}`;
+    $('qrName').textContent = a.name || '';
+    $('qrNumberLabel').textContent = a.label;
+    $('qrNumber').textContent = a.number || '';
+  }
+  tabs.forEach((t) => {
+    t.addEventListener('click', () => selectAccount(t.dataset.account));
+    t.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const other = tabs.find((x) => x !== t);
+      other.focus(); selectAccount(other.dataset.account);
+    });
+  });
+  selectAccount('gcash');
+  document.querySelectorAll('[data-test-only]').forEach((el) => { el.hidden = !testMode; });
+  // Outside test mode, online payment only shows once the SSC switches it on in config.js.
+  if (!testMode && config.onlinePaymentsEnabled !== true) {
+    document.querySelector('.qr-card').hidden = true;
+    document.querySelectorAll('[name="paymentMethod"]:not([value="Cash"])').forEach((i) => { i.disabled = true; i.closest('.method').hidden = true; });
+  }
+
+  /* ---------- Form ---------- */
+  function selected(name) { return document.querySelector(`[name="${name}"]:checked`)?.value || ''; }
   function updatePayment() {
     const role = selected('role');
     const attending = selected('attendance') === 'Attending';
     $('affiliationWrap').hidden = !role;
     $('affiliationLabel').innerHTML = role === 'Faculty' ? 'Department / Office <span aria-hidden="true">*</span>' : 'Program / Year / Section <span aria-hidden="true">*</span>';
-    $('affiliation').placeholder = role === 'Faculty' ? 'e.g. IT Department' : 'e.g. BSIT 4A';
+    $('affiliation').placeholder = role === 'Faculty' ? 'e.g. IT Department' : 'e.g. BSIS 4A';
     $('affiliation').required = Boolean(role);
     $('paymentFields').hidden = !attending || !role;
-    $('feeValue').textContent = role ? `₱${feeByRole[role].toLocaleString('en-PH')}` : '₱—';
+    $('feeValue').textContent = role ? `₱${feeByRole[role]}` : '₱—';
     const method = selected('paymentMethod');
     const online = attending && (method === 'GCash' || method === 'Bank Transfer');
-    $('onlineDetail').hidden = !online;
+    $('proofWrap').hidden = !online;
     $('proofImage').required = online && !testMode;
-    if (online) {
-      const account = method === 'GCash' ? config.gcash : config.bank;
-      const info = $('onlineInstructions');
-      info.replaceChildren();
-      const heading = document.createElement('strong');
-      heading.textContent = `${method} · ₱${feeByRole[role]}`;
-      info.append(heading);
-      if (method === 'GCash' && account?.displayName) addInfo(info, `Recipient: ${account.displayName}`);
-      addInfo(info, 'Payment contact: Anthony Sedoro, SSC President. You may also coordinate through the SSC Treasurer.');
-      if (method === 'Bank Transfer') {
-        if (account?.bankName) addInfo(info, `Bank: ${account.bankName}`);
-        if (account?.accountName) addInfo(info, `Account name: ${account.accountName}`);
-      }
-      if (account?.maskedNumber) addInfo(info, `Account: ${account.maskedNumber}`);
-      if (account?.qrImage) {
-        if (testMode) {
-          const caution = document.createElement('p');
-          caution.className = 'qr-test-warning';
-          caution.textContent = 'TEST PREVIEW — REAL QR CODE — DO NOT MAKE A TRANSFER';
-          info.append(caution);
-        }
-        const img = document.createElement('img');
-        img.src = account.qrImage;
-        img.alt = testMode ? `${method} real QR image, displayed for testing only — DO NOT SEND MONEY` : `${method} payment QR code`;
-        info.append(img);
-      }
-      addInfo(info, testMode
-        ? 'DEMO ONLY — These original QR codes are scannable. Do not send money. You may attach a sample screenshot to test the form.'
-        : 'Save your transfer screenshot. Your acknowledgment remains pending until verified.');
-    }
   }
-  function addInfo(parent, message){const paragraph=document.createElement('p');paragraph.textContent=message;parent.append(paragraph);}
-  roleInputs.forEach(input => input.addEventListener('change', updatePayment));
-  attendanceInputs.forEach(input => input.addEventListener('change', updatePayment));
-  methodInputs.forEach(input => input.addEventListener('change', updatePayment));
+  document.querySelectorAll('[name="role"],[name="attendance"],[name="paymentMethod"]').forEach((i) => i.addEventListener('change', updatePayment));
 
-  function usableAccount(name) {
-    const obj = config[name] || {};
-    if (testMode) return Boolean(obj.qrImage);
-    return Boolean(config.onlinePaymentsEnabled && obj.qrImage && !obj.qrImage.includes('placeholder') && (name === 'gcash' ? obj.displayName : (obj.bankName && obj.accountName)) && obj.maskedNumber);
-  }
-  $('gcashOption').querySelector('input').disabled = !usableAccount('gcash');
-  $('bankOption').querySelector('input').disabled = !usableAccount('bank');
-  if (usableAccount('gcash')) $('gcashAvailability').textContent = testMode ? 'Try demo (no transfer)' : 'Transfer & upload proof';
-  if (usableAccount('bank')) $('bankAvailability').textContent = testMode ? 'Try demo (no transfer)' : 'Transfer & upload proof';
-  $('previewRibbon').hidden = !testMode;
   const configured = /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(config.sheetWebAppUrl || '');
   const preview = testMode || !configured;
-  $('connectionStatus').textContent = preview
-    ? 'TEST MODE — Nothing entered here is submitted, charged, or stored in Google Sheets.'
-    : 'Responses will be sent to the private SSC Google Sheet.';
-  $('submitBtn').textContent = preview ? 'Preview acknowledgment (no submission)' : 'Send my response ↗';
+  $('previewRibbon').hidden = !testMode;
+  $('connectionStatus').textContent = preview ? 'Test preview: your reply will not be saved yet.' : '';
+  $('submitBtn').textContent = preview ? 'Preview my reply' : 'Send my reply';
 
-  function error(message) {
-    $('formError').textContent = message;
-    $('formError').hidden = false;
-    $('formError').scrollIntoView({block:'nearest',behavior:'smooth'});
-  }
-  function clearError(){ $('formError').hidden = true; $('formError').textContent = ''; }
+  function error(message) { $('formError').textContent = message; $('formError').hidden = false; $('formError').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  function clearError() { $('formError').hidden = true; $('formError').textContent = ''; }
   function nonce() {
     const bytes = new Uint8Array(16);
     if (globalThis.crypto?.getRandomValues) crypto.getRandomValues(bytes);
     else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-    return [...bytes].map(b => b.toString(16).padStart(2,'0')).join('');
+    return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
   }
   function imageProof(input) {
     return new Promise((resolve, reject) => {
       const file = input.files[0];
-      if (!file) return reject(new Error('Please select a payment screenshot.'));
-      if (!['image/jpeg','image/png','image/webp'].includes(file.type)) return reject(new Error('Use JPG, PNG or WebP for the payment screenshot.'));
-      if (file.size > 2 * 1024 * 1024) return reject(new Error('Payment screenshot must be 2 MB or smaller.'));
+      if (!file) return reject(new Error('Please attach your payment screenshot.'));
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return reject(new Error('Use a JPG, PNG or WebP screenshot.'));
+      if (file.size > 2 * 1024 * 1024) return reject(new Error('Screenshot must be 2 MB or smaller.'));
       const reader = new FileReader();
-      reader.onerror = () => reject(new Error('Could not read the payment screenshot.'));
-      reader.onload = () => resolve({ name:file.name.replace(/[^\w.-]/g,'_').slice(0,80), mime:file.type, base64:String(reader.result).split(',')[1] });
+      reader.onerror = () => reject(new Error('Could not read the screenshot.'));
+      reader.onload = () => resolve({ name: file.name.replace(/[^\w.-]/g, '_').slice(0, 80), mime: file.type, base64: String(reader.result).split(',')[1] });
       reader.readAsDataURL(file);
     });
   }
+
   $('rsvpForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     clearError();
     if ($('companyWebsite').value) return;
-    const fullName = $('fullName').value.trim().replace(/\s+/g,' ');
+    const fullName = $('fullName').value.trim().replace(/\s+/g, ' ');
     const role = selected('role');
     const attendance = selected('attendance');
     const affiliation = $('affiliation').value.trim();
     const method = attendance === 'Attending' ? selected('paymentMethod') : 'Not applicable';
-    if (fullName.length < 2 || !role || !attendance || !affiliation) return error('Please complete your name, category, affiliation, and attendance response.');
-    if (attendance === 'Attending' && !method) return error('Please select a payment method.');
-    if ((method === 'GCash' && !usableAccount('gcash')) || (method === 'Bank Transfer' && !usableAccount('bank'))) return error('This online payment option is not available yet.');
-    if (!$('consent').checked) return error('Please acknowledge the information notice to continue.');
+    if (fullName.length < 2 || !role || !attendance || !affiliation) return error('Please fill in your name, category, program or department, and attendance.');
+    if (attendance === 'Attending' && !method) return error('Please choose how you will pay.');
+    if (!$('consent').checked) return error('Please tick the agreement box to continue.');
     const isOnline = method === 'GCash' || method === 'Bank Transfer';
     let proof = null;
     if (isOnline && (!preview || $('proofImage').files.length)) {
       try { proof = await imageProof($('proofImage')); } catch (err) { return error(err.message); }
     }
-    const payload = { nonce:nonce(), fullName,role,affiliation,attendance,paymentMethod:method,amount:attendance==='Attending'?feeByRole[role]:0,proof,website:'',clientDate:new Date().toISOString() };
-    if (preview) return showAcknowledgment({...payload,receiptId:`DEMO-${Date.now().toString(36).toUpperCase()}`,saved:false});
+    const payload = { nonce: nonce(), fullName, role, affiliation, attendance, paymentMethod: method, amount: attendance === 'Attending' ? feeByRole[role] : 0, proof, website: '', clientDate: new Date().toISOString() };
+    if (preview) return showAcknowledgment({ ...payload, receiptId: `DEMO-${Date.now().toString(36).toUpperCase()}`, saved: false });
     $('submitBtn').disabled = true;
-    $('submitBtn').textContent = 'Submitting…';
-    pending = {...payload,timeout:null};
-    // Standard HTML form POST into a hidden frame avoids putting PII in query strings.
-    // Apps Script replies with a signed-back nonce via postMessage; only then show "saved".
+    $('submitBtn').textContent = 'Sending…';
+    pending = { ...payload, timeout: null };
+    // Plain form POST into a hidden frame keeps personal data out of URLs.
     const form = document.createElement('form');
-    form.method='POST'; form.action=config.sheetWebAppUrl; form.target='submissionFrame';form.hidden=true;
-    const field=document.createElement('input');field.type='hidden';field.name='payload';field.value=JSON.stringify(payload);form.append(field);
+    form.method = 'POST'; form.action = config.sheetWebAppUrl; form.target = 'submissionFrame'; form.hidden = true;
+    const field = document.createElement('input'); field.type = 'hidden'; field.name = 'payload'; field.value = JSON.stringify(payload); form.append(field);
     document.body.append(form);
-    pending.timeout=setTimeout(() => {if(!pending)return;pending=null;resetSubmit();error('We could not confirm that Google Sheets saved your response. Please try again or contact the SSC.');},25000);
-    try { form.submit(); } catch {clearTimeout(pending.timeout);pending=null;resetSubmit();error('Could not contact the response form. Please try again.');}
+    pending.timeout = setTimeout(() => { if (!pending) return; pending = null; resetSubmit(); error('We could not confirm your reply was saved. Please try again or message the SSC.'); }, 25000);
+    try { form.submit(); } catch { clearTimeout(pending.timeout); pending = null; resetSubmit(); error('Could not send your reply. Please try again.'); }
     form.remove();
   });
-  function resetSubmit(){ $('submitBtn').disabled=false; $('submitBtn').textContent='Send my response ↗'; }
+  function resetSubmit() { $('submitBtn').disabled = false; $('submitBtn').textContent = 'Send my reply'; }
   window.addEventListener('message', (event) => {
-    if (!pending || !event.data || event.data.type!=='PANAGHIMAMAT_SUBMISSION') return;
-    if (!(/^https:\/\/script\.google\.com$/.test(event.origin) || /^https:\/\/script\.googleusercontent\.com$/.test(event.origin) || /^https:\/\/[\w-]+\.googleusercontent\.com$/.test(event.origin))) return;
-    if (event.data.nonce!==pending.nonce) return;
+    if (!pending || !event.data || event.data.type !== 'PANAGHIMAMAT_SUBMISSION') return;
+    if (!/^https:\/\/([\w-]+\.)?(script\.google\.com|googleusercontent\.com)$/.test(event.origin)) return;
+    if (event.data.nonce !== pending.nonce) return;
     clearTimeout(pending.timeout);
-    const savedData=pending;pending=null;resetSubmit();
-    if (event.data.ok === true && /^[A-Z0-9-]{8,36}$/.test(String(event.data.receiptId||''))) {
-      showAcknowledgment({...savedData,receiptId:event.data.receiptId,saved:true});
-    } else error(event.data.message || 'The response could not be saved. Please try again.');
+    const saved = pending; pending = null; resetSubmit();
+    if (event.data.ok === true && /^[A-Z0-9-]{8,36}$/.test(String(event.data.receiptId || ''))) showAcknowledgment({ ...saved, receiptId: event.data.receiptId, saved: true });
+    else error(event.data.message || 'Your reply could not be saved. Please try again.');
   });
 
-  function showAcknowledgment(d){
-    const attending=d.attendance==='Attending';
-    const pendingPayment=attending && ['GCash','Bank Transfer'].includes(d.paymentMethod);
-    const title = !d.saved ? 'PREVIEW — NOT SUBMITTED' : pendingPayment ? 'PROVISIONAL PAYMENT ACKNOWLEDGMENT' : 'RSVP ACKNOWLEDGMENT';
-    $('receiptTitle').textContent=title;
-    $('receiptTag').textContent=!d.saved ? 'Demo only · Not saved' : pendingPayment ? 'Awaiting manual payment verification' : 'Response recorded';
-    $('replyKicker').textContent=d.saved ? 'A RESPONSE RECEIVED' : 'A PREVIEW OF YOUR REPLY';
-    $('replyHeading').innerHTML = d.saved ? 'Your response is <em>received.</em>' : 'A glimpse of <em>what’s next.</em>';
-    $('replyBody').textContent = !d.saved ? 'This is a test preview. Nothing was saved, no payment was made, and this acknowledgment is not valid for the event.' : attending ? 'We look forward to celebrating together. Please keep this acknowledgment for your reference.' : 'Thank you for letting us know. Your reply helps us plan the celebration.';
-    const details=[['Reference',d.receiptId],['Name',d.fullName],['Category',d.role],['Attendance',d.attendance],['Affiliation',d.affiliation],['Payment method',d.paymentMethod]];
-    if(attending)details.push(['Contribution',`₱${d.amount}`]);
-    if(pendingPayment)details.push(['Payment status','Pending verification']);
-    else if(attending)details.push(['Payment status','Cash — unpaid / pending']);
-    $('receiptDetails').replaceChildren();
-    details.forEach(([label,value])=>{const wrap=document.createElement('div');const dt=document.createElement('dt');dt.textContent=label;const dd=document.createElement('dd');dd.textContent=String(value);wrap.append(dt,dd);$('receiptDetails').append(wrap)});
-    $('receiptFooter').textContent=!d.saved ? 'SAMPLE ONLY · Not saved or validated.' : 'SSC event acknowledgment only · NOT an official proof or receipt of payment. Transfers require manual verification.';
-    $('printReceipt').disabled=!d.saved;
-    $('printReceipt').textContent=d.saved?'Print / Save acknowledgment ↗':'Printing available after live submission';
-    showStep(4);
+  function showAcknowledgment(d) {
+    const attending = d.attendance === 'Attending';
+    const online = attending && ['GCash', 'Bank Transfer'].includes(d.paymentMethod);
+    $('receiptTitle').textContent = !d.saved ? 'Preview only' : online ? 'Payment acknowledgment' : 'RSVP acknowledgment';
+    $('receiptTag').textContent = !d.saved ? 'Not saved' : online ? 'Awaiting SSC verification' : 'Reply recorded';
+    $('replyBody').textContent = !d.saved
+      ? 'This is a test preview. Nothing was saved and no payment was recorded.'
+      : attending ? 'We look forward to celebrating with you on October 23.' : 'Thank you for letting us know. You will be missed.';
+    const rows = [['Reference', d.receiptId], ['Name', d.fullName], ['Category', d.role], ['Attendance', d.attendance], ['Program / Dept.', d.affiliation]];
+    if (attending) rows.push(['Payment', d.paymentMethod === 'Bank Transfer' ? 'GoTyme Bank' : d.paymentMethod], ['Contribution', `₱${d.amount}`], ['Status', online ? 'Pending verification' : 'Cash, to be paid']);
+    $('receiptDetails').replaceChildren(...rows.map(([k, v]) => { const w = document.createElement('div'); const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = String(v); w.append(dt, dd); return w; }));
+    $('receiptFooter').textContent = !d.saved ? 'Sample only. Not saved or validated.' : 'Event acknowledgment only, not an official receipt. Online payments are checked by the SSC.';
+    $('printReceipt').disabled = !d.saved;
+    showStep(3);
   }
-  $('printReceipt').addEventListener('click',()=>window.print());
+  $('printReceipt').addEventListener('click', () => window.print());
   showStep(0);
 })();
