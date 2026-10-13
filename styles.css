@@ -268,11 +268,3 @@ textarea:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgb
 #reasonWrap .field-help{color:var(--oxblood);font-style:italic}
 .form-field>label small{font-weight:400;color:var(--ink-faint)}
 .invite-inside{margin:0 auto 14px;max-width:24em;padding:10px 12px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);font:italic 1rem/1.4 var(--serif);color:var(--oxblood)}
-.faculty-check{margin:0 0 16px;padding:12px;border:1px dashed rgba(110,75,35,.5);background:rgba(255,251,240,.35)}
-.faculty-title{margin:0 0 4px;font-weight:600;font-size:.95rem}
-.faculty-check .field-help{margin:0 0 10px}
-.verify-btn{width:100%;min-height:48px;padding:0 16px;border:1px solid var(--oxblood);background:var(--oxblood);color:#f6e9d2;font:500 .78rem var(--body);letter-spacing:.12em;text-transform:uppercase}
-.faculty-check.is-verified{border-style:solid;border-color:#5f7a4a;background:rgba(95,122,74,.08)}
-.faculty-check.is-verified .verify-btn{background:#5f7a4a;border-color:#5f7a4a}
-.faculty-check.is-error #facultyStatus{color:var(--oxblood)}
-.faculty-check.is-verified #facultyStatus{color:#3f5a2e}

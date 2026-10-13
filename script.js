@@ -208,47 +208,11 @@
   const cleanSection = () => ($('section') ? $('section').value.trim().replace(/\s+/g, ' ').toUpperCase() : '');
   if ($('section')) $('section').addEventListener('blur', () => { $('section').value = cleanSection(); });
 
-  /* Faculty: the name is matched against the SSC's Faculty List before the ₱400 rate applies */
-  const nameKey = (v) => v.trim().toLowerCase().replace(/\s+/g, ' ');
-  let facultyVerified = false;
-  let verifiedName = '';
-  function setFacultyState(state, message) {
-    const box = $('facultyCheck');
-    facultyVerified = state === 'ok';
-    box.classList.toggle('is-verified', state === 'ok');
-    box.classList.toggle('is-error', state === 'error');
-    $('verifyFaculty').textContent = state === 'ok' ? 'Verified ✓' : state === 'busy' ? 'Checking…' : 'Verify my name';
-    $('verifyFaculty').disabled = state === 'busy';
-    if (message) $('facultyStatus').textContent = message;
-  }
-  async function verifyFaculty() {
-    const name = cleanName();
-    if (name.split(' ').length < 2) { $('fullName').focus(); return setFacultyState('error', 'Type your full name (first and last name) in the name box first.'); }
-    if (!configured) return setFacultyState('error', 'Faculty check is not available right now. Please message an SSC officer.');
-    setFacultyState('busy', 'Checking the faculty list…');
-    try {
-      const data = await callApi(`${API}?action=verifyFaculty&name=${encodeURIComponent(name)}`, {}, 15000);
-      if (data.ok === true) { verifiedName = nameKey(name); setFacultyState('ok', 'Verified. Thank you, the faculty contribution of ₱400 applies.'); }
-      else if (data.notReady) setFacultyState('error', 'Faculty check is not ready yet. Please try again later or message an SSC officer.');
-      else setFacultyState('error', data.message || 'Your name is not on the faculty list yet.');
-    } catch {
-      setFacultyState('error', 'No connection. Please check your signal and tap verify again.');
-    }
-    updatePayment();
-  }
-  if (FACULTY) {
-    $('verifyFaculty').addEventListener('click', verifyFaculty);
-    $('fullName').addEventListener('input', () => {
-      if (facultyVerified && nameKey($('fullName').value) !== verifiedName) { setFacultyState('idle', 'Your name changed. Tap verify again.'); updatePayment(); }
-    });
-    $('fullName').addEventListener('change', () => { if (!facultyVerified && cleanName().split(' ').length >= 2) verifyFaculty(); });
-  }
-
   function updatePayment() {
     const attendance = selected('attendance');
     const attending = attendance === 'Attending';
     $('reasonWrap').hidden = attendance !== 'Not attending';
-    $('paymentFields').hidden = !attending || (FACULTY && !facultyVerified);
+    $('paymentFields').hidden = !attending;
     $('feeValue').textContent = `₱${FEE}`;
     const method = selected('paymentMethod');
     $('proofWrap').hidden = !(attending && (method === 'GCash' || method === 'Bank Transfer'));
@@ -295,7 +259,6 @@
     const reason = $('reason').value.trim().replace(/\s+/g, ' ');
     if (fullName.split(' ').length < 2) return error('Please type your full name (first and last name).');
     if (!FACULTY && section.length < 2) return error('Please type your year and section, e.g. BSIS 4A.');
-    if (FACULTY && (!facultyVerified || nameKey(fullName) !== verifiedName)) return error('Please verify your name on the faculty list first.');
     if (!attendance) return error('Please tell us if you can attend.');
     if (attendance === 'Not attending' && reason.length < 3) return error('Please give a short reason for not attending.');
     if (attendance === 'Attending' && !method) return error('Please choose how you will pay.');
