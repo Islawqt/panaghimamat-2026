@@ -153,6 +153,7 @@ function save_(d) {
     : book.getSheetByName(FACULTY);
   if (!sheet) fail_('The SSC records are being set up. Please try again later.');
   sheet.appendRow(row);
+  sheet.getRange(sheet.getLastRow(), 1).setNumberFormat('mmm d, h:mm am/pm'); // appendRow resets the date style
   return 'PH26-' + Utilities.getUuid().slice(0, 6).toUpperCase();
 }
 
