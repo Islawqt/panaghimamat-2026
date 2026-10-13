@@ -12,30 +12,71 @@
   let busy = false;
   let pending = null;
 
-  /* ---------- Pages ---------- */
-  function showStep(next) {
-    if (next < 0 || next > 3) return;
+  const anim = (el, frames, opts) => {
+    if (reduceMotion || !el.animate) { Object.assign(el.style, frames[frames.length - 1]); return Promise.resolve(); }
+    const a = el.animate(frames, { fill: 'forwards', ...opts });
+    return a.finished.then(() => { try { a.commitStyles(); } catch {} a.cancel(); });
+  };
+  const EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
+  const EASE_IN_OUT = 'cubic-bezier(.65,0,.35,1)';
+
+  /* ---------- Pages (soft fade, drift and focus-pull between pages) ---------- */
+  let switching = false;
+  function applyStep(next) {
     step = next;
     screens.forEach((s, i) => { s.hidden = i !== next; s.classList.toggle('is-active', i === next); });
     dots.forEach((d, i) => d.classList.toggle('active', i === Math.min(next, 2)));
     $('pager').hidden = next === 0 || next === 3;
     $('nextBtn').style.visibility = next >= 2 ? 'hidden' : 'visible';
+  }
+  async function showStep(next, instant) {
+    if (next < 0 || next > 3 || next === step || switching) return;
+    switching = true;
+    const dir = next > step ? 1 : -1;
+    const out = screens[step], into = screens[next];
+    if (!instant && !reduceMotion) {
+      await anim(out, [{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: `translateX(${-dir * 28}px) scale(.985)`, filter: 'blur(4px)' }], { duration: 320, easing: 'cubic-bezier(.55,0,.75,.4)' });
+      out.style.cssText = '';
+    }
+    applyStep(next);
     window.scrollTo({ top: 0 });
     $('mainContent').focus({ preventScroll: true });
+    if (!instant && !reduceMotion) {
+      const parts = [...into.children].filter((el) => !el.hidden);
+      parts.forEach((el) => { el.style.opacity = '0'; });
+      await Promise.all(parts.map((el, i) => anim(el,
+        [{ opacity: 0, transform: `translateX(${dir * 34}px) translateY(6px)`, filter: 'blur(5px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
+        { duration: 620, delay: Math.min(i, 6) * 70, easing: EASE_OUT })));
+      parts.forEach((el) => { el.style.cssText = ''; });
+    }
+    switching = false;
   }
   $('nextBtn').addEventListener('click', () => showStep(step + 1));
   $('backBtn').addEventListener('click', () => showStep(step - 1));
   $('toPayment').addEventListener('click', () => showStep(1));
-  $('brandHome').addEventListener('click', (e) => { e.preventDefault(); showStep(0); });
+  $('brandHome').addEventListener('click', (e) => { e.preventDefault(); if (step !== 0) showStep(0); });
   $('restartButton').addEventListener('click', () => showStep(0));
 
   /* ---------- Envelope ---------- */
   const envelope = $('envelope');
   const layer = $('inviteLayer');
+  const card = $('invitationCard');
+  const seal = $('sealButton');
+  const flap = envelope.querySelector('.env-flap');
+  const letter = envelope.querySelector('.env-letter');
+  const content = card.querySelector('.invite-content');
 
   if (config.eventTheme) {
     $('themeValue').textContent = config.eventTheme;
     $('themeRow').hidden = false;
+  }
+
+  // Transform that makes the full card sit exactly over the small letter (for a seamless "unfold").
+  function letterToCard() {
+    const l = letter.getBoundingClientRect(), c = card.getBoundingClientRect();
+    const sx = l.width / c.width, sy = l.height / c.height;
+    const dx = (l.left + l.width / 2) - (c.left + c.width / 2), dy = (l.top + l.height / 2) - (c.top + c.height / 2);
+    return `translate(${dx}px,${dy}px) scale(${sx},${sy})`;
   }
 
   async function openEnvelope() {
@@ -43,25 +84,55 @@
     busy = true;
     envelope.classList.remove('is-read');
     envelope.classList.add('is-open');
-    await wait(1250); // seal lifts, flap swings open, letter slides out
+    // 1. the seal is pressed, then lifts away
+    await anim(seal, [{ transform: 'scale(1)' }, { transform: 'scale(.92)' }], { duration: 140, easing: 'ease-out' });
+    anim(seal, [{ transform: 'scale(.92)', opacity: 1 }, { transform: 'translateY(-14px) scale(1.08) rotate(-12deg)', opacity: 0 }], { duration: 420, easing: EASE_OUT });
+    // 2. the flap swings up (front half), slips behind the letter, then settles
+    await anim(flap, [{ transform: 'rotateX(0deg)' }, { transform: 'rotateX(90deg)' }], { duration: 380, delay: 120, easing: 'cubic-bezier(.5,0,.75,.3)' });
+    envelope.classList.add('flap-up');
+    await anim(flap, [{ transform: 'rotateX(90deg)' }, { transform: 'rotateX(180deg)' }], { duration: 420, easing: EASE_OUT });
+    // 3. the letter glides out
+    await anim(letter, [{ transform: 'translateY(0)' }, { transform: 'translateY(-46%)' }], { duration: 760, easing: EASE_IN_OUT });
+    // 4. the letter unfolds into the full invitation
     layer.hidden = false;
-    $('invitationCard').scrollTop = 0;
-    $('invitationCard').focus();
+    card.scrollTop = 0;
+    const from = letterToCard();
+    letter.style.opacity = '0';
+    content.style.opacity = '0';
+    anim(layer, [{ backgroundColor: 'rgba(18,2,5,0)' }, { backgroundColor: 'rgba(18,2,5,.62)' }], { duration: 700, easing: 'ease-out' });
+    await anim(card, [{ transform: from }, { transform: 'none' }], { duration: 760, easing: EASE_OUT });
+    card.style.transform = '';
+    await anim(content, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: EASE_OUT });
+    content.style.cssText = '';
+    card.focus({ preventScroll: true });
     busy = false;
   }
+
   async function closeEnvelope() {
     if (busy || layer.hidden) return;
     busy = true;
-    layer.classList.add('is-closing');
-    await wait(330);
+    await anim(content, [{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease-in' });
+    card.scrollTop = 0;
+    const to = letterToCard();
+    anim(layer, [{ backgroundColor: 'rgba(18,2,5,.62)' }, { backgroundColor: 'rgba(18,2,5,0)' }], { duration: 620, easing: 'ease-in' });
+    await anim(card, [{ transform: 'none' }, { transform: to }], { duration: 620, easing: EASE_IN_OUT });
+    letter.style.opacity = '';
     layer.hidden = true;
-    layer.classList.remove('is-closing');
-    envelope.classList.remove('is-open'); // letter slides back, flap closes, seal returns
-    await wait(1100);
+    card.style.transform = ''; layer.style.backgroundColor = ''; content.style.cssText = '';
+    // letter slides back in, flap folds down, seal is pressed back on
+    await anim(letter, [{ transform: 'translateY(-46%)' }, { transform: 'translateY(0)' }], { duration: 640, easing: EASE_IN_OUT });
+    await anim(flap, [{ transform: 'rotateX(180deg)' }, { transform: 'rotateX(90deg)' }], { duration: 360, easing: 'cubic-bezier(.5,0,.75,.3)' });
+    envelope.classList.remove('flap-up');
+    await anim(flap, [{ transform: 'rotateX(90deg)' }, { transform: 'rotateX(0deg)' }], { duration: 420, easing: EASE_OUT });
+    await anim(seal, [{ transform: 'translateY(-10px) scale(1.25)', opacity: 0 }, { transform: 'scale(.96)', opacity: 1, offset: .75 }, { transform: 'scale(1)', opacity: 1 }], { duration: 480, easing: EASE_OUT });
+    envelope.classList.remove('is-open');
     envelope.classList.add('is-read');
-    $('envelopeHint').hidden = true;
-    $('afterRead').hidden = false;
-    $('toPayment').focus();
+    if ($('afterRead').hidden) {
+      $('envelopeHint').hidden = true;
+      $('afterRead').hidden = false;
+      await anim($('afterRead'), [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 520, easing: EASE_OUT });
+    }
+    $('toPayment').focus({ preventScroll: true });
     busy = false;
   }
   $('sealButton').addEventListener('click', openEnvelope);
@@ -214,5 +285,5 @@
     showStep(3);
   }
   $('printReceipt').addEventListener('click', () => window.print());
-  showStep(0);
+  applyStep(0);
 })();

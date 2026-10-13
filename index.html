@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#efe6d2">
+  <meta name="theme-color" content="#2b070b">
   <meta name="description" content="An invitation to the STI College Valencia Teachers' Day Celebration & Panaghimamat 2026 — Friday, October 23, 1:00 to 5:00 PM at Regidor Country Homes.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Panaghimamat 2026 | STI College Valencia">
@@ -22,7 +22,39 @@
   <script src="script.js" defer></script>
 </head>
 <body>
-  <div class="paper-bg" aria-hidden="true"></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <filter id="deckle" x="-3%" y="-3%" width="106%" height="106%">
+        <feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="7" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="waxEdge" x="-10%" y="-10%" width="120%" height="120%">
+        <feTurbulence type="fractalNoise" baseFrequency=".09" numOctaves="2" seed="3" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="6"/>
+      </filter>
+      <radialGradient id="waxBody" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#a6323a"/><stop offset=".45" stop-color="#7d1a24"/><stop offset="1" stop-color="#4c0c13"/></radialGradient>
+      <radialGradient id="waxPetal" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#9c2b33"/><stop offset="1" stop-color="#5b111a"/></radialGradient>
+      <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1d9a0"/><stop offset=".45" stop-color="#b98d45"/><stop offset="1" stop-color="#6e4d1f"/></linearGradient>
+      <linearGradient id="satin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a1e2b"/><stop offset=".5" stop-color="#5a0f18"/><stop offset="1" stop-color="#3a070d"/></linearGradient>
+      <symbol id="sealArt" viewBox="0 0 100 100">
+        <g filter="url(#waxEdge)"><circle cx="50" cy="50" r="46" fill="url(#waxBody)"/></g>
+        <circle cx="50" cy="50" r="35" fill="none" stroke="#4a0a11" stroke-opacity=".55" stroke-width="2"/>
+        <circle cx="50" cy="50" r="34" fill="none" stroke="#c45a5f" stroke-opacity=".25" stroke-width="1"/>
+        <g fill="url(#waxPetal)" stroke="#45080f" stroke-opacity=".6" stroke-width=".8">
+          <ellipse cx="50" cy="33" rx="9" ry="15"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(45 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(90 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(135 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(180 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(225 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(270 50 50)"/><ellipse cx="50" cy="33" rx="9" ry="15" transform="rotate(315 50 50)"/>
+          <ellipse cx="50" cy="40" rx="6" ry="10" transform="rotate(22 50 50)"/><ellipse cx="50" cy="40" rx="6" ry="10" transform="rotate(112 50 50)"/><ellipse cx="50" cy="40" rx="6" ry="10" transform="rotate(202 50 50)"/><ellipse cx="50" cy="40" rx="6" ry="10" transform="rotate(292 50 50)"/>
+        </g>
+        <circle cx="50" cy="50" r="6" fill="#5e1019"/>
+        <g fill="#c8636a" fill-opacity=".55"><circle cx="50" cy="45.5" r="1.2"/><circle cx="54" cy="48" r="1.2"/><circle cx="54" cy="52" r="1.2"/><circle cx="50" cy="54.5" r="1.2"/><circle cx="46" cy="52" r="1.2"/><circle cx="46" cy="48" r="1.2"/></g>
+        <ellipse cx="36" cy="28" rx="12" ry="6" fill="#fff" fill-opacity=".12" transform="rotate(-30 36 28)"/>
+      </symbol>
+    </defs>
+  </svg>
+  <div class="velvet" aria-hidden="true"></div>
+  <div class="decor decor-bow" aria-hidden="true">
+    <svg viewBox="0 0 220 200"><path d="M110 60 C70 10 10 10 20 50 C28 82 80 80 110 62 Z" fill="url(#satin)"/><path d="M110 60 C150 10 210 10 200 50 C192 82 140 80 110 62 Z" fill="url(#satin)"/><path d="M104 64 L60 190 L78 182 L92 196 L114 70 Z" fill="url(#satin)"/><path d="M116 64 L150 186 L134 180 L122 194 L106 70 Z" fill="#4a0b12"/><ellipse cx="110" cy="62" rx="14" ry="12" fill="#6c1420"/><path d="M40 30 C60 22 85 36 102 56" stroke="#b44a55" stroke-opacity=".35" stroke-width="3" fill="none"/></svg>
+    <svg class="key" viewBox="0 0 60 200"><g fill="url(#gold)"><circle cx="30" cy="26" r="20"/><rect x="26" y="40" width="8" height="130" rx="2"/><rect x="34" y="140" width="16" height="8"/><rect x="34" y="156" width="12" height="8"/><rect x="20" y="58" width="20" height="6" rx="3"/></g><g fill="none" stroke="#5a3b14" stroke-width="2"><circle cx="30" cy="26" r="11"/><path d="M30 10 V42 M14 26 H46"/><circle cx="30" cy="26" r="16" stroke-opacity=".5"/></g></svg>
+  </div>
   <div class="preview-ribbon" id="previewRibbon" hidden><strong>Test preview</strong> · Responses are not saved yet</div>
 
   <div class="app-shell">
@@ -48,24 +80,24 @@
         <div class="envelope-stage">
           <div class="envelope" id="envelope">
             <div class="env-back"></div>
-            <div class="env-letter" aria-hidden="true">
+            <div class="env-letter paper" aria-hidden="true">
               <span class="mini-kicker">STI College Valencia</span>
               <span class="mini-title">Panaghimamat</span>
               <span class="mini-rule"></span>
-              <span class="mini-date">23 · X · 2026</span>
+              <span class="mini-date">23 October 2026</span>
             </div>
             <div class="env-pocket"><span class="env-address">To our dear teachers &amp; fellow students</span></div>
             <div class="env-flap"></div>
             <button class="seal" id="sealButton" type="button" aria-haspopup="dialog" aria-controls="invitationCard">
-              <span class="seal-text">SSC</span>
+              <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#sealArt"/></svg>
               <span class="sr-only">Open the invitation</span>
             </button>
           </div>
         </div>
 
-        <p class="hint" id="envelopeHint">Tap the wax seal to open your invitation.</p>
+        <p class="hint" id="envelopeHint"><span class="hint-dot" aria-hidden="true"></span>Tap the wax seal to open your invitation</p>
         <div class="after-read" id="afterRead" hidden>
-          <button class="primary-btn" id="toPayment" type="button">Continue to contribution &amp; RSVP <span aria-hidden="true">→</span></button>
+          <button class="primary-btn" id="toPayment" type="button">Contribution &amp; RSVP <span aria-hidden="true">→</span></button>
           <button class="link-btn" id="reopenEnvelope" type="button">Read the invitation again</button>
         </div>
       </section>
@@ -81,10 +113,10 @@
           <div class="price"><small>Faculty</small><strong>₱400</strong></div>
         </div>
 
-        <div class="paper-card">
+        <div class="paper paper-card">
           <p class="card-label">Collection period</p>
           <p class="collection"><strong>October 7</strong> <span>to</span> <strong>October 19, 2026</strong></p>
-          <div class="rule-ornament" aria-hidden="true">❦</div>
+          <div class="rule-ornament" aria-hidden="true">✦</div>
           <p class="card-label">Who to pay</p>
           <div class="payees">
             <div class="payee">
@@ -101,7 +133,7 @@
           <p class="payee-note">Aside from the Treasurer, you may also pay <strong>directly to our SSC President, Anthony Sedoro</strong>. He is the owner of the GCash and GoTyme accounts and QR codes below.</p>
         </div>
 
-        <div class="paper-card qr-card">
+        <div class="paper paper-card qr-card">
           <p class="card-label">Pay online (optional)</p>
           <div class="qr-tabs" role="tablist" aria-label="Online payment account">
             <button type="button" role="tab" id="tabGcash" aria-selected="true" aria-controls="qrPanel" data-account="gcash">GCash</button>
@@ -127,7 +159,7 @@
         <h2 id="rsvpHeading" class="page-title">Will you <em>join us?</em></h2>
         <p class="lead">Kindly let us know so we can prepare for you.</p>
 
-        <form id="rsvpForm" class="paper-card form-card" novalidate>
+        <form id="rsvpForm" class="paper paper-card form-card" novalidate>
           <div class="form-field"><label for="fullName">Full name <span aria-hidden="true">*</span></label><input id="fullName" name="fullName" type="text" minlength="2" maxlength="100" autocomplete="name" placeholder="Juan Dela Cruz" required></div>
 
           <fieldset><legend>I am a <span aria-hidden="true">*</span></legend>
@@ -167,10 +199,10 @@
 
       <!-- 3 · ACKNOWLEDGMENT -->
       <section class="step" data-step="3" id="reply" aria-labelledby="replyHeading" hidden>
-        <div class="rule-ornament big" aria-hidden="true">❦</div>
+        <div class="rule-ornament big" aria-hidden="true">✦</div>
         <h2 id="replyHeading" class="page-title">Thank you, <em>truly.</em></h2>
         <p class="lead" id="replyBody">Your reply has been received.</p>
-        <div class="paper-card receipt" id="receiptCard">
+        <div class="paper paper-card receipt" id="receiptCard">
           <div class="receipt-top"><span>STI College Valencia</span><span>SSC · 2026</span></div>
           <h3 id="receiptTitle">RSVP Acknowledgment</h3>
           <p class="receipt-tag" id="receiptTag">Response recorded</p>
@@ -191,8 +223,8 @@
 
   <!-- THE INVITATION (opens from the envelope) -->
   <div class="invite-layer" id="inviteLayer" hidden>
-    <div class="invite-card" id="invitationCard" role="dialog" aria-modal="true" aria-labelledby="inviteTitle" tabindex="-1">
-      <div class="invite-inner">
+    <div class="invite-card paper" id="invitationCard" role="dialog" aria-modal="true" aria-labelledby="inviteTitle" tabindex="-1">
+      <div class="invite-inner invite-content">
         <div class="invite-logos"><img src="assets/sti-logo.png" alt="STI logo" width="40" height="40"><img src="assets/ssc-logo.png" alt="SSC logo" width="40" height="40"></div>
         <p class="invite-from">The Supreme Student Council<br>of STI College Valencia</p>
         <p class="invite-request">requests the pleasure of your company at the</p>
@@ -210,7 +242,7 @@
         </div>
         <p class="invite-time">from one o’clock until five in the afternoon</p>
 
-        <div class="invite-rule" aria-hidden="true">❦</div>
+        <div class="invite-rule" aria-hidden="true">✦</div>
 
         <p class="invite-venue"><strong>Regidor Country Homes</strong><br>Carnai, Valencia City, Bukidnon</p>
 
