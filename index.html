@@ -168,9 +168,9 @@
           </fieldset>
 
           <div class="faculty-check" id="facultyCheck" hidden>
-            <label for="facultyCode">Faculty verification code <span aria-hidden="true">*</span></label>
-            <div class="code-row"><input id="facultyCode" type="text" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Code from the SSC"><button type="button" class="verify-btn" id="verifyFaculty">Verify</button></div>
-            <small class="field-help" id="facultyStatus" role="status">The faculty rate needs a quick check since there is no log-in. Ask any SSC officer for the code.</small>
+            <p class="faculty-title">Faculty verification <span aria-hidden="true">*</span></p>
+            <div class="code-row"><p class="faculty-name" id="facultyName">Type your full name above</p><button type="button" class="verify-btn" id="verifyFaculty">Verify</button></div>
+            <small class="field-help" id="facultyStatus" role="status">There is no log-in, so your name is checked against the SSC’s faculty list before the ₱400 rate applies.</small>
           </div>
 
           <div class="form-field" id="affiliationWrap" hidden><label for="affiliation" id="affiliationLabel">Program / Year / Section <span aria-hidden="true">*</span></label><input id="affiliation" name="affiliation" type="text" maxlength="100" placeholder="e.g. BSIS 4A"></div>

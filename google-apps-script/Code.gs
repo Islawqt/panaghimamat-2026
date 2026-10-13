@@ -20,6 +20,7 @@ function setupPanaghimamat() {
   const p = PropertiesService.getScriptProperties();
   if (p.getProperty('SHEET_ID')) {
     const old = SpreadsheetApp.openById(p.getProperty('SHEET_ID'));
+    facultyListSheet_(old); // adds the Faculty List tab to an existing sheet
     Logger.log('Already initialized — sheet: ' + old.getUrl());
     return { spreadsheetUrl: old.getUrl(), folderId: p.getProperty('PROOF_FOLDER_ID') };
   }
@@ -29,6 +30,7 @@ function setupPanaghimamat() {
   const students = book.insertSheet('Students');
   const faculty = book.insertSheet('Faculty');
   const guide = book.insertSheet('SSC Guide');
+  facultyListSheet_(book);
   styleRecords_(students, '#204438');
   styleRecords_(faculty, '#394F72');
   styleDashboard_(dashboard);
@@ -124,7 +126,7 @@ function styleGuide_(sheet) {
     ['Faculty','₱400 each. New responses arrive automatically on the Faculty tab.'],
     ['Cash','“Cash — to collect” means NOT paid; verify cash and update status manually.'],
     ['GCash / bank','“Online — pending verification” means a screenshot was submitted, NOT that payment cleared.'],
-    ['Faculty rate','Faculty replies are accepted only with the code saved in Script properties as FACULTY_CODE. Change it anytime; share it with faculty only.'],
+    ['Faculty list','Type each faculty member’s full name in the “Faculty List” tab. Only listed names get the ₱400 rate, and each name can reply once.'],
     ['Payment verification','Guests do not type a reference number. Read it from their screenshot, enter it in “Transaction reference”, and check it against the receiving account. Only after confirmation set Status to “Verified — paid”.'],
     ['Payment screenshots','Stored in a PRIVATE Google Drive folder. Do not publicly share URLs or change the folder’s visibility.'],
     ['Privacy','Limit access to authorized SSC staff. Use records only for event coordination, collection tracking and verification.'],
@@ -143,35 +145,71 @@ function styleGuide_(sheet) {
 function doGet(e) {
   const action = e && e.parameter && e.parameter.action;
   if (action === 'verifyFaculty') {
-    const result = verifyFaculty_(e.parameter.code);
+    const result = verifyFaculty_(e.parameter.name);
     return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
   }
   return HtmlService.createHtmlOutput('<!doctype html><meta charset="utf-8"><p>Panaghimamat RSVP endpoint is active. Use the invitation form to submit.</p>');
 }
 
 /**
- * Faculty verification. There is no log-in, so faculty prove their rate with a shared code.
- * Set it in Project Settings > Script properties > FACULTY_CODE (never in the public repo).
+ * Faculty verification. There is no log-in, so the SSC (usually the President) types each
+ * faculty member's full name into the "Faculty List" tab. Only names on that list get the
+ * faculty rate, and each listed name can reply once.
  */
-function normalizeCode_(value) {
-  return String(value == null ? '' : value).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 40);
+const FACULTY_LIST = 'Faculty List';
+const TITLES_ = /^(mr|mrs|ms|miss|dr|engr|prof|sir|maam|madam|atty)$/;
+
+function normalizeName_(value) {
+  return String(value == null ? '' : value).normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z\s-]/g, ' ').replace(/-/g, ' ').split(/\s+/)
+    .filter(w => w && !TITLES_.test(w)).join(' ');
 }
-function facultyCodeMatches_(value) {
-  const expected = normalizeCode_(PropertiesService.getScriptProperties().getProperty('FACULTY_CODE'));
-  const given = normalizeCode_(value);
-  if (!expected || given.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i);
-  return diff === 0;
+// Same person if the full names match, or first and last names match (middle names/initials optional).
+function sameName_(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const x = a.split(' '), y = b.split(' ');
+  return x.length > 1 && y.length > 1 && x[0] === y[0] && x[x.length - 1] === y[y.length - 1];
 }
-function verifyFaculty_(code) {
+function facultyListSheet_(book) {
+  let sheet = book.getSheetByName(FACULTY_LIST);
+  if (!sheet) {
+    sheet = book.insertSheet(FACULTY_LIST);
+    sheet.getRange('A1:B1').setValues([['Faculty full name', 'Notes (optional)']])
+      .setFontWeight('bold').setBackground('#394F72').setFontColor('#FFFFFF');
+    sheet.setColumnWidth(1, 320); sheet.setColumnWidth(2, 320); sheet.setFrozenRows(1);
+    sheet.setTabColor('#394F72');
+  }
+  return sheet;
+}
+function facultyOnList_(book, fullName) {
+  const name = normalizeName_(fullName);
+  const sheet = facultyListSheet_(book);
+  if (sheet.getLastRow() < 2) return false;
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues()
+    .some(r => sameName_(normalizeName_(r[0]), name));
+}
+function facultyAlreadyReplied_(book, fullName) {
+  const name = normalizeName_(fullName);
+  const sheet = book.getSheetByName('Faculty');
+  if (!sheet || sheet.getLastRow() < 2) return false;
+  return sheet.getRange(2, 3, sheet.getLastRow() - 1, 1).getValues()
+    .some(r => sameName_(normalizeName_(r[0]), name));
+}
+function verifyFaculty_(fullName) {
   const cache = CacheService.getScriptCache();
   const fails = Number(cache.get('faculty_fails') || 0);
-  if (fails >= 30) return { ok: false, message: 'Too many attempts. Please wait 10 minutes or ask an SSC officer.' };
-  if (!PropertiesService.getScriptProperties().getProperty('FACULTY_CODE')) return { ok: false, message: 'Faculty verification is not set up yet. Please contact the SSC.' };
-  if (facultyCodeMatches_(code)) return { ok: true };
-  cache.put('faculty_fails', String(fails + 1), 600);
-  return { ok: false, message: 'That code did not match. Please check with an SSC officer.' };
+  if (fails >= 40) return { ok: false, message: 'Too many attempts. Please wait 10 minutes or ask an SSC officer.' };
+  if (normalizeName_(fullName).split(' ').length < 2) return { ok: false, message: 'Please type your full name (first and last name).' };
+  const sheetId = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  if (!sheetId) return { ok: false, message: 'Faculty verification is not set up yet. Please contact the SSC.' };
+  const book = SpreadsheetApp.openById(sheetId);
+  if (!facultyOnList_(book, fullName)) {
+    cache.put('faculty_fails', String(fails + 1), 600);
+    return { ok: false, message: 'Your name is not on the SSC faculty list yet. Please message the SSC President.' };
+  }
+  if (facultyAlreadyReplied_(book, fullName)) return { ok: false, message: 'This name already has a reply. If that was not you, please tell the SSC.' };
+  return { ok: true };
 }
 
 function doPost(e) {
@@ -185,7 +223,7 @@ function doPost(e) {
     return reply_({type:'PANAGHIMAMAT_SUBMISSION',nonce,ok:true,receiptId:result.receiptId});
   } catch (ex) {
     const message = ex && ex.message === 'FACULTY_UNVERIFIED'
-      ? 'Faculty verification failed. Please re-enter the code from the SSC.'
+      ? 'Faculty verification failed. Your name must be on the SSC faculty list and can reply only once.'
       : 'Unable to record this submission. Please contact the SSC or try again.';
     return reply_({type:'PANAGHIMAMAT_SUBMISSION',nonce,ok:false,message});
   }
@@ -210,7 +248,6 @@ function saveSubmission_(d) {
   const attending = attendance === 'Attending';
   const allowedMethods = ['Cash','GCash','Bank Transfer'];
   if ((attending && !allowedMethods.includes(method)) || (!attending && method !== 'Not applicable')) throw Error('Invalid payment');
-  if (role === 'Faculty' && !facultyCodeMatches_(d.facultyCode)) throw Error('FACULTY_UNVERIFIED');
   const online = attending && ['GCash','Bank Transfer'].includes(method);
   if (!!d.proof !== online) throw Error('Missing or unexpected proof');
   // Recalculate the fee on the server. Never trust a submitted amount.
@@ -226,6 +263,7 @@ function saveSubmission_(d) {
     // Make a duplicate submission idempotent, even if the browser retries.
     const existing = sheet.getRange('N2:N' + Math.max(2,sheet.getLastRow())).createTextFinder(nonce).matchEntireCell(true).findNext();
     if (existing) return {receiptId:sheet.getRange(existing.getRow(),2).getDisplayValue()};
+    if (role === 'Faculty' && (!facultyOnList_(book, fullName) || facultyAlreadyReplied_(book, fullName))) throw Error('FACULTY_UNVERIFIED');
     let proofUrl = '';
     if (online) {
       const proof = d.proof;

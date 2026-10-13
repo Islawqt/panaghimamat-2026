@@ -261,10 +261,11 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
 
 /* ---------- Faculty check, safety note, credit ---------- */
 .faculty-check{margin:0 0 16px;padding:12px;border:1px dashed rgba(110,75,35,.5);background:rgba(255,251,240,.35)}
-.faculty-check>label{display:block;font-weight:600;font-size:.95rem;margin-bottom:6px}
-.faculty-check>label span{color:var(--oxblood-2)}
-.code-row{display:grid;grid-template-columns:1fr auto;gap:8px}
-.code-row input{text-transform:uppercase;letter-spacing:.12em}
+.faculty-title{margin:0 0 6px;font-weight:600;font-size:.95rem}
+.faculty-title span{color:var(--oxblood-2)}
+.code-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.faculty-name{margin:0;min-height:48px;display:flex;align-items:center;padding:0 12px;border:1px solid #b9a079;background:rgba(255,251,240,.6);font:italic 1rem var(--serif);overflow-wrap:anywhere}
+.faculty-name.has-name{font:600 1.05rem var(--serif);font-style:normal}
 .verify-btn{min-height:48px;padding:0 16px;border:1px solid var(--oxblood);background:var(--oxblood);color:#f6e9d2;font:500 .78rem var(--body);letter-spacing:.12em;text-transform:uppercase}
 .faculty-check.is-verified{border-style:solid;border-color:#5f7a4a;background:rgba(95,122,74,.08)}
 .faculty-check.is-verified .verify-btn{background:#5f7a4a;border-color:#5f7a4a}
