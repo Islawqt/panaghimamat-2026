@@ -103,7 +103,7 @@ const SITE = 'https://islawqt.github.io/panaghimamat-2026/';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'ticket') return json_(ticket_(p.ref));
-  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe-status-mind-guard', message: 'Panaghimamat RSVP is running.' });
+  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe-status-mind-guard-attendance', message: 'Panaghimamat RSVP is running.' });
 }
 
 /* ---------- Tickets ----------
@@ -155,6 +155,8 @@ function doPost(e) {
     const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (data.action === 'checkin') return json_(checkin_(data));
     if (data.action === 'officer') return json_(officer_(data));
+    if (data.action === 'attendance') return json_(attendance_(data));
+    if (data.action === 'undo') return json_(undoCheckin_(data));
     if (data.action === 'lookup') return json_(lookup_(data.group, data.name));
     if (data.action === 'addEmail') return json_(addEmail_(data));
     if (data.action === 'status') return json_(status_(data));
@@ -462,7 +464,7 @@ function checkin_(d) {
     officerOk_(d.code);
     const ref = String(d.ref || '').trim().toUpperCase().replace(/^.*REF=/, '');
     if (!/^PH26-[A-F0-9]{32}$/.test(ref)) return { ok: true, result: 'invalid', message: 'This is not a Panaghimamat ticket.' };
-    const officer = String(d.officer || '').trim().replace(/\s+/g, ' ').slice(0, 40) || 'Officer';
+    const officer = (String(d.officer || '').trim().replace(/\s+/g, ' ').slice(0, 40) || 'Officer') + (d.manual ? ' (from list)' : '');
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(15000)) fail_('Busy. Scan again.');
     try {
@@ -484,7 +486,7 @@ function checkin_(d) {
         const stamp = Utilities.formatDate(new Date(), 'Asia/Manila', 'MMM d, h:mm a') + ' · ' + officer;
         sheet.getRange(hit.getRow(), columns['Checked in']).setValue(stamp);
         SpreadsheetApp.flush();
-        return { ok: true, result: 'admitted', guest, message: 'Checked in ' + stamp, stats: checkinStats_() };
+        return { ok: true, result: 'admitted', guest, ref, message: 'Checked in ' + stamp, stats: checkinStats_() };
       }
       return { ok: true, result: 'invalid', message: 'No reply has this ticket. Check the name in the Sheet.' };
     } finally {
@@ -576,13 +578,17 @@ function ticketEmail_(g, email) {
     '<p style="margin:0 0 16px;color:#7a6650">' + esc(who) + '</p>' +
     '<p style="margin:0;font-size:15px">' + EVENT_LINE + '<br>' + VENUE_LINE + '</p>' +
     '<p style="margin:18px 0;padding:12px;background:#f6ecdc;border-radius:4px;font-size:14px;text-align:left">' +
-    'Show this QR at the entrance. An SSC officer will scan it. It admits one person, once, so please don’t share it.</p>' +
+    'Show this QR at the entrance. An SSC officer will scan it. It admits one person, once, so please don’t share it.<br><br>' +
+    '<b>No phone on the day?</b> A friend’s phone can show your QR, but <b>you must be there in person</b> when it is scanned. ' +
+    'A ticket scanned for someone who is not there is void.</p>' +
     '<a href="' + link + '" style="display:inline-block;background:#5c121c;color:#f6ead6;text-decoration:none;padding:10px 20px;border-radius:4px">Open your ticket online</a>' +
     '<p style="margin:18px 0 0;font-size:11px;color:#9b8a74">Reference ' + g.reference + '</p>' +
     '</div></div>';
   const body = 'Hi ' + first + ',\n\nYour payment is verified. Your Panaghimamat 2026 QR ticket is attached.\n\n' +
     g.name + ' · ' + who + '\n' + EVENT_LINE + '\n' + VENUE_LINE + '\n\n' +
-    'Show the QR at the entrance. It admits one person, once.\nOpen your ticket online: ' + link + '\n\nSTI College Valencia · Supreme Student Council';
+    'Show the QR at the entrance. It admits one person, once.\n' +
+    'No phone on the day? A friend\u2019s phone can show your QR, but you must be there in person when it is scanned. A ticket scanned for someone who is not there is void.\n' +
+    'Open your ticket online: ' + link + '\n\nSTI College Valencia · Supreme Student Council';
   return {
     to: email, name: 'STI SSC Valencia', subject: 'Your Panaghimamat 2026 ticket',
     body, htmlBody: html, inlineImages: { qr }, attachments: [qr.copyBlob()]
@@ -668,5 +674,59 @@ function resendTicket_(d) {
     return { ok: true, sent };
   } catch (err) {
     return { ok: false, message: err.userMessage || 'Could not send your ticket. Please try again.' };
+  }
+}
+
+/* ---------- Attendance list (scanner) ----------
+ * Officers see every paid, attending guest and who is inside. Officers only (needs the code). */
+function attendance_(d) {
+  try {
+    officerOk_(d.code);
+    const book = book_();
+    const guests = [];
+    [[book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), 'student'], [book.getSheetByName(FACULTY), 'faculty']].forEach(([sheet, group]) => {
+      if (!sheet || sheet.getLastRow() < 6) return;
+      const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
+      const at = (t) => headers.indexOf(t);
+      sheet.getRange(6, 1, sheet.getLastRow() - 5, headers.length).getValues().forEach((r) => {
+        if (r[at('Attending')] !== 'Yes' || String(r[at('Payment')]).trim() !== 'Paid ✓') return;
+        guests.push({
+          name: String(r[at('Name')]).trim(), group, section: at('Year & Section') >= 0 ? String(r[at('Year & Section')]).trim() : '',
+          ref: String(r[at('Reference')]).trim(), checkedIn: at('Checked in') >= 0 ? String(r[at('Checked in')]).trim() : ''
+        });
+      });
+    });
+    guests.sort((a, b) => a.name.localeCompare(b.name));
+    return { ok: true, guests, stats: checkinStats_() };
+  } catch (err) {
+    return { ok: false, message: err.userMessage || 'Could not load the list. Try again.' };
+  }
+}
+
+// Undo a check-in (wrong person scanned, or the ticket owner was not there). The real owner can then be scanned.
+function undoCheckin_(d) {
+  try {
+    officerOk_(d.code);
+    const ref = String(d.ref || '').trim().toUpperCase();
+    if (!/^PH26-[A-F0-9]{32}$/.test(ref)) fail_('This is not a Panaghimamat ticket.');
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(15000)) fail_('Busy. Try again.');
+    try {
+      const book = book_();
+      for (const sheet of [book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), book.getSheetByName(FACULTY)]) {
+        if (!sheet || sheet.getLastRow() < 6) continue;
+        const columns = referenceColumns_(sheet);
+        const hit = findReply_(sheet, columns.Reference, ref);
+        if (!hit) continue;
+        sheet.getRange(hit.getRow(), columns['Checked in']).setValue('');
+        SpreadsheetApp.flush();
+        return { ok: true, stats: checkinStats_() };
+      }
+      fail_('No reply has this ticket.');
+    } finally {
+      lock.releaseLock();
+    }
+  } catch (err) {
+    return { ok: false, message: err.userMessage || 'Could not undo. Try again.' };
   }
 }

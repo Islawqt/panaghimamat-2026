@@ -168,7 +168,7 @@
 
   /* The reply card peeks out of the envelope and waits for the guest:
    * drag it up (it follows the finger, with a little tilt) or just tap it. */
-  const SLIP_PEEK = -58;
+  const SLIP_PEEK = -25;
   function waitForPull() {
     return new Promise((resolve) => {
       const hint = $('envelopeHint'), hintHTML = hint.innerHTML;
@@ -239,10 +239,11 @@
     busy = true;
     try {
       await foldPaper();
+      // The read letter goes back in looking used: creased, a little worn, tucked in at a slant behind the reply card.
+      letter.classList.add('is-used');
       letter.style.opacity = '';
       layer.hidden = true;
-      await anim(letter, [{ transform: 'translateY(-46%)' }, { transform: 'translateY(0)' }], { duration: 480, easing: EASE_IN_OUT });
-      letter.style.opacity = '0';
+      await anim(letter, [{ transform: 'translateY(-46%) rotate(0deg)' }, { transform: 'translateY(-74%) rotate(-3deg)' }], { duration: 520, easing: EASE_IN_OUT });
       $('envelopeHint').hidden = true;
       // Keep the flap open: the reply slip emerges only after the letter is tucked in.
       replySlip.hidden = false;
@@ -303,6 +304,8 @@
     });
   });
   selectAccount('gcash');
+  // Load both QR codes up front so switching tabs is instant.
+  Object.values(accounts).forEach((a) => { if (a.img) { const i = new Image(); i.decoding = 'async'; i.src = a.img; } });
   document.querySelectorAll('[data-test-only]').forEach((el) => { el.hidden = !testMode; });
   // Outside test mode, online payment only shows once the SSC switches it on in config.js.
   if (!testMode && config.onlinePaymentsEnabled !== true) {

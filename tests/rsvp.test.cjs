@@ -65,7 +65,7 @@ function backend({ legacy = false } = {}) {
   vm.createContext(context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/QR.gs'), 'utf8'), context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/Code.gs'), 'utf8'), context);
-  return { status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
+  return { attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
 
@@ -356,4 +356,34 @@ test('guards: same email merges a misspelled name; no cancelling an attending re
   assert.equal(b.addEmail({ group: 'student', name: 'Khyme Caliradelle Bongabong', email: 'k@gmail.co' }).ok, false);
   assert.equal(sh.rows.length, 6);
   assert.equal(b.locked, false);
+});
+
+test('officer attendance list shows paid guests; undo lets the real owner be scanned later', () => {
+  const b = backend(), sh = b.students;
+  const a = b.save(reply('student', { fullName: 'Zed Alpha', email: 'z@x.com' }));
+  b.save(reply('student', { fullName: 'Amy Beta', email: 'a@x.com' }));
+  b.save(reply('faculty', { fullName: 'Prof Gamma', email: 'p@x.com' }));
+  sh.rows[5][sh.rows[4].indexOf('Payment')] = 'Paid ✓';
+  b.faculty.rows[5][b.faculty.rows[4].indexOf('Payment')] = 'Paid ✓';
+  assert.equal(b.attendance({ code: 'nope' }).ok, false);
+  let list = b.attendance({ code: 'SSC2026' });
+  assert.equal(list.guests.map((g) => g.name).join('|'), 'Prof Gamma|Zed Alpha');
+  const scan = b.checkin({ code: 'SSC2026', ref: a, officer: 'Ana' });
+  assert.equal(scan.result, 'admitted'); assert.equal(scan.ref, a);
+  list = b.attendance({ code: 'SSC2026' });
+  assert.match(list.guests.find((g) => g.ref === a).checkedIn, /Ana/);
+  assert.equal(list.stats.inside, 1);
+  assert.equal(b.undo({ code: 'wrong', ref: a }).ok, false);
+  assert.equal(b.undo({ code: 'SSC2026', ref: a }).stats.inside, 0);
+  assert.equal(b.checkin({ code: 'SSC2026', ref: a, officer: 'Ben', manual: true }).result, 'admitted');
+  assert.match(sh.rows[5][sh.rows[4].indexOf('Checked in')], /Ben \(from list\)/);
+  assert.equal(b.locked, false);
+});
+test('ticket email tells guests without a phone they must be there in person', () => {
+  const b = backend(), sh = b.students;
+  b.save(reply('student', { fullName: 'No Phone', email: 'np@x.com' }));
+  sh.rows[5][sh.rows[4].indexOf('Payment')] = 'Paid ✓';
+  b.send();
+  assert.match(b.mails[0].htmlBody, /must be there in person/);
+  assert.match(b.mails[0].body, /void/);
 });

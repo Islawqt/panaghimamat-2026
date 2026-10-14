@@ -10,6 +10,7 @@
     set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} }
   };
   let officer = store.get('ph26-officer'), code = store.get('ph26-officer-code');
+  let lastRef = '', guests = [], listView = 'out';
   let stream = null, facing = 'environment', scanning = false, busy = false, lastText = '', lastAt = 0, detector = null, timer = null;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -142,6 +143,9 @@
     $('rIcon').textContent = icon;
     $('rVerdict').textContent = verdict;
     const g = d.guest || {};
+    lastRef = kind === 'admitted' ? (d.ref || '') : '';
+    $('rOwner').hidden = kind !== 'admitted';
+    $('undoBtn').hidden = !lastRef;
     $('rName').textContent = g.name || '';
     $('rMeta').textContent = g.name ? (g.group === 'faculty' ? 'Faculty' : (g.section ? `Student · ${g.section}` : 'Student')) : '';
     $('rDetail').textContent = d.message || '';
@@ -166,6 +170,86 @@
     }
   }
   $('nextBtn').addEventListener('click', () => { $('result').hidden = true; lastText = ''; });
+  $('undoBtn').addEventListener('click', async () => {
+    if (!lastRef) return;
+    $('undoBtn').disabled = true; $('undoBtn').textContent = 'Undoing…';
+    try {
+      const d = await post({ action: 'undo', code, ref: lastRef });
+      if (!d.ok) { $('rDetail').textContent = d.message || 'Could not undo.'; return; }
+      setCount(d.stats);
+      show('error', { message: 'Check-in undone. The ticket owner can be scanned when they are here.' });
+      $('rVerdict').textContent = 'Undone';
+    } catch { $('rDetail').textContent = 'No signal. Try again.'; }
+    finally { $('undoBtn').disabled = false; $('undoBtn').textContent = 'Undo this check-in'; }
+  });
+
+  /* ---------- Attendance list ---------- */
+  // Shown only once the deployed Google script supports it.
+  $('listBtn').hidden = true;
+  fetch(`${API}?action=ping`, { credentials: 'omit' }).then((r) => r.json())
+    .then((d) => { $('listBtn').hidden = !/attendance/.test(String(d && d.version || '')); }).catch(() => {});
+  const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ');
+  function drawList() {
+    const q = norm($('listSearch').value).trim();
+    const inside = guests.filter((g) => g.checkedIn).length;
+    $('nIn').textContent = inside; $('nOut').textContent = guests.length - inside; $('nAll').textContent = guests.length;
+    $('listCount').textContent = `${inside} / ${guests.length} inside`;
+    const rows = guests.filter((g) => (listView === 'all' || (listView === 'in') === !!g.checkedIn) && (!q || norm(g.name + ' ' + g.section).includes(q)));
+    if (!rows.length) {
+      const li = document.createElement('li'); li.className = 'empty';
+      li.textContent = q ? 'No one matches that search.' : listView === 'in' ? 'No one is inside yet.' : listView === 'out' ? 'Everyone is inside!' : 'No paid guests yet.';
+      return $('guestList').replaceChildren(li);
+    }
+    $('guestList').replaceChildren(...rows.map((g) => {
+      const li = document.createElement('li'); li.className = 'guest' + (g.checkedIn ? ' in' : '');
+      const info = document.createElement('div');
+      const name = document.createElement('strong'); name.textContent = g.name;
+      const meta = document.createElement('small'); meta.textContent = g.group === 'faculty' ? 'Faculty' : (g.section || 'Student');
+      info.append(name, meta);
+      if (g.checkedIn) { const w = document.createElement('small'); w.className = 'when'; w.textContent = '✓ ' + g.checkedIn; info.append(w); }
+      const btn = document.createElement('button'); btn.type = 'button';
+      btn.textContent = g.checkedIn ? 'Undo' : 'Check in';
+      if (!g.checkedIn) btn.className = 'go';
+      // Two taps so a mis-tap never changes attendance.
+      let armed = 0;
+      btn.addEventListener('click', async () => {
+        if (!armed) { armed = setTimeout(() => { armed = 0; btn.className = g.checkedIn ? '' : 'go'; btn.textContent = g.checkedIn ? 'Undo' : 'Check in'; }, 3000); btn.className = 'sure'; btn.textContent = 'Tap to confirm'; return; }
+        clearTimeout(armed); armed = 0;
+        btn.disabled = true; btn.textContent = '…';
+        try {
+          const d = g.checkedIn ? await post({ action: 'undo', code, ref: g.ref }) : await post({ action: 'checkin', code, officer, ref: g.ref, manual: true });
+          if (!d.ok) { listErr(d.message || 'Could not save. Try again.'); return loadList(); }
+          setCount(d.stats);
+          feedback(!g.checkedIn);
+          await loadList();
+        } catch { listErr('No signal. Try again.'); btn.disabled = false; }
+      });
+      li.append(info, btn);
+      return li;
+    }));
+  }
+  const listErr = (m) => { $('listErr').textContent = m; $('listErr').hidden = !m; };
+  async function loadList() {
+    listErr('');
+    $('listRefresh').disabled = true; $('listRefresh').textContent = 'Loading…';
+    try {
+      const d = await post({ action: 'attendance', code });
+      if (!d.ok) return listErr(d.message || 'Could not load the list.');
+      guests = d.guests || [];
+      setCount(d.stats);
+      drawList();
+    } catch { listErr('No signal. Check your connection and tap Refresh.'); }
+    finally { $('listRefresh').disabled = false; $('listRefresh').textContent = 'Refresh list'; }
+  }
+  $('listBtn').addEventListener('click', () => { stopCamera(); $('sCam').hidden = true; $('sList').hidden = false; window.scrollTo(0, 0); drawList(); loadList(); });
+  $('backToScan').addEventListener('click', () => { $('sList').hidden = true; $('sCam').hidden = false; startCamera(); });
+  $('listRefresh').addEventListener('click', loadList);
+  $('listSearch').addEventListener('input', drawList);
+  document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+    listView = b.dataset.show;
+    document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    drawList();
+  }));
 
   /* Manual entry when a QR will not scan (cracked screen, low brightness). */
   $('typeBtn').addEventListener('click', () => { $('typeForm').hidden = !$('typeForm').hidden; if (!$('typeForm').hidden) $('typeInput').focus(); });

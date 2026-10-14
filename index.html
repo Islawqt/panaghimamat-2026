@@ -20,11 +20,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Pinyon+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261014-pull">
+  <link rel="stylesheet" href="styles.css?v=20261014-used">
   <script src="config.js" defer></script>
   <script src="assets/vendor/qrcode.js" defer></script>
-  <script src="assets/ticket.js?v=20261014-regrets" defer></script>
-  <script src="script.js?v=20261014-guard" defer></script>
+  <script src="assets/ticket.js?v=20261014-owner" defer></script>
+  <script src="script.js?v=20261014-used" defer></script>
 </head>
 <body data-audience="student">
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -69,6 +69,7 @@
               <span class="mini-title">Panaghimamat</span>
               <span class="mini-rule"></span>
               <span class="mini-date">23 October 2026</span>
+              <span class="letter-wear" aria-hidden="true"></span>
             </div>
             <svg class="env-pocket" viewBox="0 0 1580 1000" preserveAspectRatio="none" aria-hidden="true">
               <path d="M0 0 L768 548 Q790 562 768 576 L0 1000 Z" fill="url(#paperFill)" filter="url(#foldShadow)"/>
@@ -139,7 +140,7 @@
             <button type="button" role="tab" id="tabBank" aria-selected="false" aria-controls="qrPanel" data-account="bank">GoTyme Bank</button>
           </div>
           <div class="qr-panel" id="qrPanel" role="tabpanel" aria-labelledby="tabGcash">
-            <img id="qrImage" src="assets/qr-gcash.png" alt="GCash QR code of Anthony Sedoro" width="240" height="240">
+            <img id="qrImage" src="assets/qr-gcash.png?v=2" alt="GCash QR code of Anthony Sedoro" width="240" height="240">
             <dl class="qr-details">
               <div><dt>Account name</dt><dd id="qrName">Anthony Sedoro</dd></div>
               <div><dt id="qrNumberLabel">GCash number</dt><dd id="qrNumber">0975 552 3575</dd></div>

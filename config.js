@@ -12,12 +12,12 @@ window.PANAGHIMAMAT_CONFIG = Object.freeze({
   gcash: {
     displayName: 'Anthony Sedoro',
     maskedNumber: '0975 552 3575',
-    qrImage: 'assets/qr-gcash.png'
+    qrImage: 'assets/qr-gcash.png?v=2'
   },
   bank: {
     bankName: 'GoTyme Bank',
     accountName: 'Anthony Sedoro',
     maskedNumber: '•••• 1353',
-    qrImage: 'assets/qr-gotyme.png'
+    qrImage: 'assets/qr-gotyme.png?v=2'
   }
 });

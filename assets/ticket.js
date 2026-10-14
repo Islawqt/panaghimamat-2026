@@ -59,6 +59,11 @@
       }
       t.append(note);
     }
+    if (!d.preview) {
+      const rule = el('p', 'tk-note');
+      rule.append(el('strong', '', 'No phone on the day? '), 'A friend’s phone can show your QR, but you must be there in person when it is scanned. A ticket scanned for someone who is not there is void.');
+      t.append(rule);
+    }
     container.replaceChildren(t);
     lastTicket = d;
     return t;

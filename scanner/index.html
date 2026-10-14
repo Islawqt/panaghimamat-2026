@@ -80,12 +80,33 @@ h1{margin:0;text-align:center;font:600 clamp(2rem,9vw,2.6rem)/1.05 var(--display
 .result .meta{margin:0;font-weight:800;font-size:1.1rem;opacity:.9}
 .result .detail{margin:0;font-weight:700;opacity:.85}
 .result .btn{margin-top:.6rem;min-height:64px;font-size:1.2rem}
+/* attendance list */
+.list{justify-content:flex-start;gap:.75rem}
+.pill.back{background:var(--wine-2);color:var(--cream);border:0;cursor:pointer}
+.list-title{margin:.2rem 0 0;text-align:center;font:600 2rem/1 var(--display)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;background:var(--wine-2);padding:.3rem;border-radius:16px}
+.seg button{min-height:44px;border:0;border-radius:12px;background:transparent;color:#d8c2a5;font-weight:800;cursor:pointer}
+.seg button[aria-selected=true]{background:var(--cream);color:var(--wine-3)}
+.seg b{display:inline-block;min-width:1.6em;margin-left:.2em;padding:0 .35em;border-radius:999px;background:rgba(0,0,0,.18);font-size:.85em}
+.search{width:100%;min-height:52px;padding:.7rem .9rem;border:2px solid var(--line);border-radius:14px;background:#fff6e9;color:var(--ink);font-weight:700;font-size:1.02rem}
+.guests{list-style:none;margin:0;padding:0;display:grid;gap:.5rem}
+.guest{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.6rem;padding:.75rem .85rem;border-radius:16px;background:var(--card);color:var(--ink)}
+.guest.in{background:#e6f1e3}
+.guest strong{display:block;font:600 1.25rem/1.15 var(--display)}
+.guest small{display:block;color:var(--muted);font-weight:700;font-size:.82rem}
+.guest .when{color:#2f6a3c}
+.guest button{min-height:44px;padding:.4rem .8rem;border-radius:12px;border:2px solid var(--wine-3);background:transparent;color:var(--wine-3);font-weight:800;cursor:pointer;white-space:nowrap}
+.guest button.go{background:var(--wine-3);color:var(--cream)}
+.guest button.sure{background:var(--bad);border-color:var(--bad);color:#fff}
+.guests .empty{padding:1rem;text-align:center;color:#d8c2a5;font-weight:700}
+.result .owner{margin:0 auto;max-width:24rem;padding:.6rem .8rem;border-radius:12px;background:rgba(0,0,0,.22);font-weight:800;font-size:.95rem}
+.result .btn.ghost{min-height:52px;font-size:1rem;color:#fff;border-color:rgba(255,255,255,.45)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (prefers-reduced-motion:reduce){.laser{animation:none;top:50%}.result{animation:none}}
 </style>
 <script src="config.js" defer></script>
 <script src="assets/vendor/jsQR.js" defer></script>
-<script src="assets/scanner.js?v=20261014" defer></script>
+<script src="assets/scanner.js?v=20261014-list" defer></script>
 </head>
 <body>
 <main class="shell">
@@ -137,7 +158,27 @@ h1{margin:0;text-align:center;font:600 clamp(2rem,9vw,2.6rem)/1.05 var(--display
       <input id="typeInput" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="PH26-…">
       <button class="btn gold" type="submit">Check in</button>
     </form>
+    <button class="btn gold" type="button" id="listBtn">Attendance list</button>
     <button class="btn ghost" type="button" id="lockBtn">Lock scanner</button>
+  </section>
+
+  <!-- 3. Attendance list -->
+  <section class="screen list" id="sList" hidden>
+    <div class="topbar">
+      <button class="pill back" type="button" id="backToScan">← Scanner</button>
+      <span class="pill count" id="listCount">— inside</span>
+    </div>
+    <h2 class="list-title">Attendance</h2>
+    <div class="seg" role="tablist" aria-label="Show">
+      <button type="button" role="tab" data-show="out" aria-selected="true">Not yet <b id="nOut">0</b></button>
+      <button type="button" role="tab" data-show="in" aria-selected="false">Inside <b id="nIn">0</b></button>
+      <button type="button" role="tab" data-show="all" aria-selected="false">All <b id="nAll">0</b></button>
+    </div>
+    <input class="search" id="listSearch" type="search" placeholder="Search a name or section" autocomplete="off" aria-label="Search a name or section">
+    <p class="hint">Check in from this list only when you can see the guest in person. If a ticket was scanned for someone who isn’t here, tap <b>Undo</b>. That check-in is void.</p>
+    <p class="err" id="listErr" role="alert" hidden></p>
+    <ul class="guests" id="guestList" aria-live="polite"></ul>
+    <button class="btn ghost" type="button" id="listRefresh">Refresh list</button>
   </section>
 
   <!-- Result -->
@@ -147,7 +188,9 @@ h1{margin:0;text-align:center;font:600 clamp(2rem,9vw,2.6rem)/1.05 var(--display
     <p class="name" id="rName"></p>
     <p class="meta" id="rMeta"></p>
     <p class="detail" id="rDetail"></p>
+    <p class="owner" id="rOwner" hidden>Is this the ticket owner, in person? If not, tap Undo. A ticket scanned for someone who isn’t here is void.</p>
     <button class="btn cream" type="button" id="nextBtn">Scan next guest</button>
+    <button class="btn ghost" type="button" id="undoBtn" hidden>Undo this check-in</button>
   </section>
 
 </main>
