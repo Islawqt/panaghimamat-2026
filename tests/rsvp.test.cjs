@@ -10,19 +10,23 @@ function backend({ legacy = false } = {}) {
   let locked = false, uploads = 0, failAfterAppend = false, flushes = 0, quota = 100;
   const mails = [], triggers = [];
   const cache = new Map();
-  function sheet(student) {
+  function sheet(student, rowsIn) {
     const headers = ['Date', 'Name', ...(student ? ['Year & Section'] : []), 'Attending', 'Contribution', 'Payment', 'Screenshot', 'Reason (if not attending)'];
-    const rows = [[], [], [], [], headers];
-    let maxColumns = headers.length;
+    const rows = rowsIn || [[], [], [], [], headers];
+    let maxColumns = rowsIn ? 26 : headers.length;
     const sh = {
-      rows, getLastColumn: () => Math.max(...rows.map((r) => r.length)), getLastRow: () => rows.length,
+      rows, getLastColumn: () => Math.max(0, ...Array.from(rows, (r) => (r ? r.length : 0))), getLastRow: () => rows.length,
       getMaxColumns: () => maxColumns, insertColumnsAfter: (_, n) => { maxColumns += n; }, setColumnWidth() {},
       appendRow(row) { assert.ok(locked); rows.push([...row]); },
+      setFrozenRows() {},
       getRange(r, c, h = 1, w = 1) {
         const range = {
           getValues: () => Array.from({ length: h }, (_, y) => Array.from({ length: w }, (_, x) => rows[r - 1 + y]?.[c - 1 + x] ?? '')),
           getValue: () => rows[r - 1]?.[c - 1] ?? '',
           setValue(value) { rows[r - 1] ||= []; rows[r - 1][c - 1] = value; return range; },
+          setValues(values) { values.forEach((v, y) => { rows[r - 1 + y] ||= []; v.forEach((x, i) => { rows[r - 1 + y][c - 1 + i] = x; }); }); return range; },
+          setFormulas(values) { return range.setValues(values); },
+          merge() { return range; }, setFontSize() { return range; }, setHorizontalAlignment() { return range; }, setWrap() { return range; },
           setBackground() { return range; }, setFontColor() { return range; }, setFontWeight() { return range; },
           setNumberFormat() { if (failAfterAppend) { failAfterAppend = false; throw Error('Response lost after saving'); } return range; },
           createTextFinder(value) {
@@ -39,11 +43,13 @@ function backend({ legacy = false } = {}) {
     return sh;
   }
   const students = sheet(true), faculty = sheet(false);
-  const sheets = { [legacy ? 'Responses' : 'Students']: students, Faculty: faculty };
+  // The President's officer accounts: rows 6 to 9 of the Officers tab.
+  const officers = sheet(false, [[], [], [], [], ['Name', 'Username', 'Password'], ['Ana Cruz', 'ana', 'pw-ana'], ['Ben', 'ben', 'pw-ben'], ['', '', ''], ['', '', '']]);
+  const sheets = { [legacy ? 'Responses' : 'Students']: students, Faculty: faculty, Officers: officers };
   const context = {
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k === 'OFFICER_CODE' ? 'SSC2026' : 'mock-id') }) },
     CacheService: { getScriptCache: () => ({ get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v) }) },
-    SpreadsheetApp: { openById: () => ({ getSheetByName: (name) => sheets[name] }), flush: () => { assert.ok(locked); flushes++; } },
+    SpreadsheetApp: { openById: () => ({ getSheetByName: (name) => sheets[name], insertSheet: (name) => (sheets[name] = sheet(false, [])) }), flush: () => { assert.ok(locked); flushes++; } },
     LockService: { getScriptLock: () => ({ tryLock: () => { if (locked) return false; locked = true; return true; }, releaseLock: () => { locked = false; } }) },
     Utilities: {
       getUuid: () => crypto.randomUUID(), DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
@@ -65,7 +71,7 @@ function backend({ legacy = false } = {}) {
   vm.createContext(context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/QR.gs'), 'utf8'), context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/Code.gs'), 'utf8'), context);
-  return { attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
+  return { sheets, attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
 
@@ -178,21 +184,21 @@ for (const group of ['student', 'faculty']) {
     const b = backend(), sh = group === 'student' ? b.students : b.faculty;
     const id = b.save(reply(group, { email: 'g@x.com' }));
     const h = sh.rows[4];
-    assert.equal(b.officer({ code: 'nope' }).ok, false);
-    assert.equal(b.officer({ code: 'SSC2026' }).ok, true);
-    assert.equal(b.checkin({ code: 'wrong', ref: id }).ok, false);
-    assert.equal(b.checkin({ code: 'SSC2026', ref: id }).result, 'unpaid');
+    assert.equal(b.officer({ user: 'ana', pass: 'nope' }).ok, false);
+    assert.equal(b.officer({ user: 'ana', pass: 'pw-ana' }).ok, true);
+    assert.equal(b.checkin({ user: 'ana', pass: 'wrong', ref: id }).ok, false);
+    assert.equal(b.checkin({ user: 'ana', pass: 'pw-ana', ref: id }).result, 'unpaid');
     sh.rows[5][h.indexOf('Payment')] = 'Paid ✓';
-    const first = b.checkin({ code: 'SSC2026', ref: id, officer: 'Ana' });
+    const first = b.checkin({ user: 'ana', pass: 'pw-ana', ref: id });
     assert.equal(first.result, 'admitted');
     assert.equal(first.guest.name, 'Test Guest');
     assert.equal(first.stats.inside, 1);
     const col = sh.rows[4].indexOf('Checked in');
-    assert.match(sh.rows[5][col], /Oct 23, 1:05 PM · Ana/);
-    assert.equal(b.checkin({ code: 'SSC2026', ref: id.toLowerCase() }).result, 'used');
-    assert.equal(b.checkin({ code: 'SSC2026', ref: 'https://islawqt.github.io/panaghimamat-2026/ticket/?ref=' + id }).result, 'used');
-    assert.equal(b.checkin({ code: 'SSC2026', ref: 'PH26-' + 'B'.repeat(32) }).result, 'invalid');
-    assert.equal(b.checkin({ code: 'SSC2026', ref: 'hello' }).result, 'invalid');
+    assert.match(sh.rows[5][col], /Oct 23, 1:05 PM · Ana Cruz/);
+    assert.equal(b.checkin({ user: 'ana', pass: 'pw-ana', ref: id.toLowerCase() }).result, 'used');
+    assert.equal(b.checkin({ user: 'ana', pass: 'pw-ana', ref: 'https://islawqt.github.io/panaghimamat-2026/ticket/?ref=' + id }).result, 'used');
+    assert.equal(b.checkin({ user: 'ana', pass: 'pw-ana', ref: 'PH26-' + 'B'.repeat(32) }).result, 'invalid');
+    assert.equal(b.checkin({ user: 'ana', pass: 'pw-ana', ref: 'hello' }).result, 'invalid');
     assert.equal(b.locked, false);
   });
 }
@@ -365,17 +371,17 @@ test('officer attendance list shows paid guests; undo lets the real owner be sca
   b.save(reply('faculty', { fullName: 'Prof Gamma', email: 'p@x.com' }));
   sh.rows[5][sh.rows[4].indexOf('Payment')] = 'Paid ✓';
   b.faculty.rows[5][b.faculty.rows[4].indexOf('Payment')] = 'Paid ✓';
-  assert.equal(b.attendance({ code: 'nope' }).ok, false);
-  let list = b.attendance({ code: 'SSC2026' });
+  assert.equal(b.attendance({ user: 'ana', pass: 'nope' }).ok, false);
+  let list = b.attendance({ user: 'ana', pass: 'pw-ana' });
   assert.equal(list.guests.map((g) => g.name).join('|'), 'Prof Gamma|Zed Alpha');
-  const scan = b.checkin({ code: 'SSC2026', ref: a, officer: 'Ana' });
+  const scan = b.checkin({ user: 'ana', pass: 'pw-ana', ref: a });
   assert.equal(scan.result, 'admitted'); assert.equal(scan.ref, a);
-  list = b.attendance({ code: 'SSC2026' });
-  assert.match(list.guests.find((g) => g.ref === a).checkedIn, /Ana/);
+  list = b.attendance({ user: 'ana', pass: 'pw-ana' });
+  assert.match(list.guests.find((g) => g.ref === a).checkedIn, /Ana Cruz/);
   assert.equal(list.stats.inside, 1);
-  assert.equal(b.undo({ code: 'wrong', ref: a }).ok, false);
-  assert.equal(b.undo({ code: 'SSC2026', ref: a }).stats.inside, 0);
-  assert.equal(b.checkin({ code: 'SSC2026', ref: a, officer: 'Ben', manual: true }).result, 'admitted');
+  assert.equal(b.undo({ user: 'eve', pass: 'pw-ana', ref: a }).ok, false);
+  assert.equal(b.undo({ user: 'ana', pass: 'pw-ana', ref: a }).stats.inside, 0);
+  assert.equal(b.checkin({ user: 'ana', pass: 'pw-ana', ref: a, manual: true, user: 'ben', pass: 'pw-ben' }).result, 'admitted');
   assert.match(sh.rows[5][sh.rows[4].indexOf('Checked in')], /Ben \(from list\)/);
   assert.equal(b.locked, false);
 });
@@ -386,4 +392,36 @@ test('ticket email tells guests without a phone they must be there in person', (
   b.send();
   assert.match(b.mails[0].htmlBody, /must be there in person/);
   assert.match(b.mails[0].body, /void/);
+});
+
+test('officers sign in with accounts from the Officers tab; attendance tabs log each check-in by group', () => {
+  const b = backend();
+  assert.equal(b.officer({ user: 'ANA', pass: 'pw-ana' }).officer, 'Ana Cruz');
+  assert.equal(b.officer({ user: 'ana', pass: 'pw-ben' }).ok, false);
+  assert.equal(b.officer({ user: 'zoe', pass: '' }).ok, false);
+  b.sheets.Officers.rows[7] = ['Cara', 'cara', 'pw-cara']; b.sheets.Officers.rows[8] = ['Dan', 'dan', 'pw-dan'];
+  b.sheets.Officers.rows[9] = ['Fifth', 'fifth', 'pw-5'];
+  assert.equal(b.officer({ user: 'dan', pass: 'pw-dan' }).ok, true);
+  assert.equal(b.officer({ user: 'fifth', pass: 'pw-5' }).ok, false, 'only 4 officers count');
+  for (let i = 0; i < 8; i++) b.officer({ user: 'ben', pass: 'guess' + i });
+  assert.match(b.officer({ user: 'ben', pass: 'pw-ben' }).message, /Too many/);
+  assert.equal(b.officer({ user: 'ana', pass: 'pw-ana' }).ok, true, 'one locked officer does not lock the others');
+
+  const s1 = b.save(reply('student', { fullName: 'Stu Dent', email: 's@x.com' }));
+  const f1 = b.save(reply('faculty', { fullName: 'Fac Ulty', email: 'f@x.com' }));
+  b.students.rows[5][b.students.rows[4].indexOf('Payment')] = 'Paid ✓';
+  b.faculty.rows[5][b.faculty.rows[4].indexOf('Payment')] = 'Paid ✓';
+  const r1 = b.checkin({ user: 'ana', pass: 'pw-ana', ref: s1 });
+  assert.equal(r1.stats.student.inside, 1); assert.equal(r1.stats.faculty.inside, 0);
+  b.checkin({ user: 'cara', pass: 'pw-cara', ref: f1, manual: true });
+  const st = b.sheets['Attendance · Students'], fa = b.sheets['Attendance · Faculty'];
+  const sRow = st.rows.find((r) => r && r[1] === 'Stu Dent'), fRow = fa.rows.find((r) => r && r[1] === 'Fac Ulty');
+  assert.equal(sRow[2], 'BSIS 4A'); assert.equal(sRow[3], 'Ana Cruz'); assert.equal(sRow[4], 'QR scan'); assert.equal(sRow[5], 'Present');
+  assert.equal(fRow[2], 'Cara'); assert.equal(fRow[3], 'From list'); assert.equal(fRow[4], 'Present');
+  const u = b.undo({ user: 'dan', pass: 'pw-dan', ref: s1 });
+  assert.equal(u.ok, true, JSON.stringify(u));
+  assert.match(st.rows.find((r) => r && r[1] === 'Stu Dent')[5], /Void · undone by Dan/);
+  b.checkin({ user: 'ana', pass: 'pw-ana', ref: s1 });
+  assert.equal(st.rows.filter((r) => r && r[1] === 'Stu Dent').length, 2, 'a fresh row after the real owner is scanned');
+  assert.equal(b.locked, false);
 });

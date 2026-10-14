@@ -9,14 +9,16 @@
     get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
     set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} }
   };
-  let officer = store.get('ph26-officer'), code = store.get('ph26-officer-code');
-  let lastRef = '', guests = [], listView = 'out';
+  // Officer accounts come from the "Officers" tab the President fills in (up to 4).
+  let user = store.get('ph26-officer-user'), pass = store.get('ph26-officer-pass'), officer = '';
+  const auth = () => ({ user, pass });
+  let lastRef = '', guests = [], listView = 'out', listGroup = 'student';
   let stream = null, facing = 'environment', scanning = false, busy = false, lastText = '', lastAt = 0, detector = null, timer = null;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
   if (/FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|TikTok/i.test(navigator.userAgent || '')) $('inAppHint').hidden = false;
-  $('officerName').value = officer;
+  $('officerUser').value = user;
 
   async function post(body, ms = 20000) {
     const ctrl = new AbortController();
@@ -27,41 +29,47 @@
     } finally { clearTimeout(t); }
   }
   const showErr = (m) => { $('startErr').textContent = m; $('startErr').hidden = !m; };
-  function setCount(stats) { if (stats) $('countPill').textContent = `${stats.inside} / ${stats.paid} inside`; }
+  let lastStats = null;
+  function setCount(stats) {
+    if (!stats) return;
+    lastStats = stats;
+    $('countPill').textContent = `${stats.inside} / ${stats.paid} inside`;
+  }
 
-  /* ---------- Unlock ---------- */
+  /* ---------- Sign in ---------- */
   $('startForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     showErr('');
-    const name = $('officerName').value.trim().replace(/\s+/g, ' ');
-    const typed = $('officerCode').value.trim() || code;
-    if (name.length < 2) return showErr('Please type your name.');
-    if (!typed) return showErr('Please type the officer code.');
+    const u = $('officerUser').value.trim().toLowerCase();
+    const p = $('officerPass').value || (u === user ? pass : '');
+    if (!u) return showErr('Please type your username.');
+    if (!p) return showErr('Please type your password.');
     $('startBtn').disabled = true;
-    $('startBtn').lastElementChild.textContent = 'Checking code…';
+    $('startBtn').lastElementChild.textContent = 'Signing in…';
     try {
-      const d = await post({ action: 'officer', code: typed });
-      if (!d.ok) { store.set('ph26-officer-code', ''); code = ''; return showErr(d.message || 'That code did not work.'); }
-      officer = name; code = typed;
-      store.set('ph26-officer', name); store.set('ph26-officer-code', typed);
+      const d = await post({ action: 'officer', user: u, pass: p });
+      if (!d.ok) { store.set('ph26-officer-pass', ''); pass = ''; return showErr(d.message || 'Wrong username or password.'); }
+      user = u; pass = p; officer = d.officer || u;
+      store.set('ph26-officer-user', u); store.set('ph26-officer-pass', p);
+      $('officerPass').value = '';
       setCount(d.stats);
-      $('whoPill').textContent = name;
+      $('whoPill').textContent = officer;
       $('sStart').hidden = true; $('sCam').hidden = false;
       startCamera();
     } catch {
       showErr('No connection. Check your signal and try again.');
     } finally {
       $('startBtn').disabled = false;
-      $('startBtn').lastElementChild.textContent = 'Open the scanner';
+      $('startBtn').lastElementChild.textContent = 'Sign in & open scanner';
     }
   });
-  if (code) $('officerCode').placeholder = 'Saved on this phone';
+  if (pass) $('officerPass').placeholder = 'Saved on this phone';
 
   $('lockBtn').addEventListener('click', () => {
     stopCamera();
-    store.set('ph26-officer-code', ''); code = '';
-    $('officerCode').value = ''; $('officerCode').placeholder = 'From the SSC President';
-    $('sCam').hidden = true; $('sStart').hidden = false;
+    store.set('ph26-officer-pass', ''); pass = ''; officer = '';
+    $('officerPass').value = ''; $('officerPass').placeholder = 'From the SSC President';
+    $('sCam').hidden = true; $('sList').hidden = true; $('sStart').hidden = false;
   });
 
   /* ---------- Camera ---------- */
@@ -156,9 +164,9 @@
   async function check(text) {
     busy = true; $('busy').hidden = false;
     try {
-      const d = await post({ action: 'checkin', code, officer, ref: text }, 15000);
+      const d = await post({ action: 'checkin', ...auth(), ref: text }, 15000);
       if (!d.ok) {
-        if (/code/i.test(d.message || '')) { $('lockBtn').click(); showErr(d.message); return; }
+        if (/password|sign in|officer accounts/i.test(d.message || '')) { $('lockBtn').click(); showErr(d.message); return; }
         return show('error', { message: d.message });
       }
       setCount(d.stats);
@@ -174,7 +182,7 @@
     if (!lastRef) return;
     $('undoBtn').disabled = true; $('undoBtn').textContent = 'Undoing…';
     try {
-      const d = await post({ action: 'undo', code, ref: lastRef });
+      const d = await post({ action: 'undo', ...auth(), ref: lastRef });
       if (!d.ok) { $('rDetail').textContent = d.message || 'Could not undo.'; return; }
       setCount(d.stats);
       show('error', { message: 'Check-in undone. The ticket owner can be scanned when they are here.' });
@@ -187,14 +195,19 @@
   // Shown only once the deployed Google script supports it.
   $('listBtn').hidden = true;
   fetch(`${API}?action=ping`, { credentials: 'omit' }).then((r) => r.json())
-    .then((d) => { $('listBtn').hidden = !/attendance/.test(String(d && d.version || '')); }).catch(() => {});
+    .then((d) => { $('listBtn').hidden = !/officers/.test(String(d && d.version || '')); }).catch(() => {});
   const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ');
   function drawList() {
     const q = norm($('listSearch').value).trim();
-    const inside = guests.filter((g) => g.checkedIn).length;
-    $('nIn').textContent = inside; $('nOut').textContent = guests.length - inside; $('nAll').textContent = guests.length;
-    $('listCount').textContent = `${inside} / ${guests.length} inside`;
-    const rows = guests.filter((g) => (listView === 'all' || (listView === 'in') === !!g.checkedIn) && (!q || norm(g.name + ' ' + g.section).includes(q)));
+    const group = guests.filter((g) => g.group === listGroup);
+    const inside = group.filter((g) => g.checkedIn).length;
+    $('nIn').textContent = inside; $('nOut').textContent = group.length - inside; $('nAll').textContent = group.length;
+    ['student', 'faculty'].forEach((k) => {
+      const all = guests.filter((g) => g.group === k);
+      $(k === 'student' ? 'gStu' : 'gFac').textContent = `${all.filter((g) => g.checkedIn).length}/${all.length}`;
+    });
+    $('listCount').textContent = `${inside} / ${group.length} inside`;
+    const rows = group.filter((g) => (listView === 'all' || (listView === 'in') === !!g.checkedIn) && (!q || norm(g.name + ' ' + g.section).includes(q)));
     if (!rows.length) {
       const li = document.createElement('li'); li.className = 'empty';
       li.textContent = q ? 'No one matches that search.' : listView === 'in' ? 'No one is inside yet.' : listView === 'out' ? 'Everyone is inside!' : 'No paid guests yet.';
@@ -217,7 +230,7 @@
         clearTimeout(armed); armed = 0;
         btn.disabled = true; btn.textContent = '…';
         try {
-          const d = g.checkedIn ? await post({ action: 'undo', code, ref: g.ref }) : await post({ action: 'checkin', code, officer, ref: g.ref, manual: true });
+          const d = g.checkedIn ? await post({ action: 'undo', ...auth(), ref: g.ref }) : await post({ action: 'checkin', ...auth(), ref: g.ref, manual: true });
           if (!d.ok) { listErr(d.message || 'Could not save. Try again.'); return loadList(); }
           setCount(d.stats);
           feedback(!g.checkedIn);
@@ -233,7 +246,7 @@
     listErr('');
     $('listRefresh').disabled = true; $('listRefresh').textContent = 'Loading…';
     try {
-      const d = await post({ action: 'attendance', code });
+      const d = await post({ action: 'attendance', ...auth() });
       if (!d.ok) return listErr(d.message || 'Could not load the list.');
       guests = d.guests || [];
       setCount(d.stats);
@@ -245,9 +258,16 @@
   $('backToScan').addEventListener('click', () => { $('sList').hidden = true; $('sCam').hidden = false; startCamera(); });
   $('listRefresh').addEventListener('click', loadList);
   $('listSearch').addEventListener('input', drawList);
-  document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('.seg.view button').forEach((b) => b.addEventListener('click', () => {
     listView = b.dataset.show;
-    document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    document.querySelectorAll('.seg.view button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    drawList();
+  }));
+  // Students and faculty are kept apart, like their two tabs in the Sheet.
+  document.querySelectorAll('.seg.group button').forEach((b) => b.addEventListener('click', () => {
+    listGroup = b.dataset.group;
+    document.querySelectorAll('.seg.group button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+    $('listTitle').textContent = listGroup === 'faculty' ? 'Faculty attendance' : 'Student attendance';
     drawList();
   }));
 

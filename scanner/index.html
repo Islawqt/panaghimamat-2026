@@ -83,6 +83,7 @@ h1{margin:0;text-align:center;font:600 clamp(2rem,9vw,2.6rem)/1.05 var(--display
 .list{justify-content:flex-start;gap:.75rem}
 .pill.back{background:var(--wine-2);color:var(--cream);border:0;cursor:pointer}
 .list-title{margin:.2rem 0 0;text-align:center;font:600 2rem/1 var(--display)}
+.seg.group{grid-template-columns:1fr 1fr}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;background:var(--wine-2);padding:.3rem;border-radius:16px}
 .seg button{min-height:44px;border:0;border-radius:12px;background:transparent;color:#d8c2a5;font-weight:800;cursor:pointer}
 .seg button[aria-selected=true]{background:var(--cream);color:var(--wine-3)}
@@ -105,7 +106,7 @@ h1{margin:0;text-align:center;font:600 clamp(2rem,9vw,2.6rem)/1.05 var(--display
 </style>
 <script src="config.js" defer></script>
 <script src="assets/vendor/jsQR.js" defer></script>
-<script src="assets/scanner.js?v=20261014-list" defer></script>
+<script src="assets/scanner.js?v=20261014-officers" defer></script>
 </head>
 <body>
 <main class="shell">
@@ -119,16 +120,16 @@ h1{margin:0;text-align:center;font:600 clamp(2rem,9vw,2.6rem)/1.05 var(--display
     <h1>Panaghimamat 2026</h1>
     <p class="lead">Scan each guest’s QR ticket at the entrance. Each ticket gets in once.</p>
     <form class="card" id="startForm" novalidate>
-      <label for="officerName">Your name</label>
-      <input id="officerName" type="text" autocomplete="name" maxlength="40" placeholder="e.g. Jhodel">
-      <label for="officerCode">Officer code</label>
-      <input id="officerCode" type="password" autocomplete="off" maxlength="40" placeholder="From the SSC President">
+      <label for="officerUser">Username</label>
+      <input id="officerUser" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" placeholder="From the SSC President">
+      <label for="officerPass">Password</label>
+      <input id="officerPass" type="password" autocomplete="current-password" maxlength="80" placeholder="From the SSC President">
       <p class="err" id="startErr" role="alert" hidden></p>
       <button class="btn gold" type="submit" id="startBtn">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
-        <span>Open the scanner</span>
+        <span>Sign in &amp; open scanner</span>
       </button>
-      <p class="soft" style="color:var(--muted)">Your phone will ask to use the camera. Tap Allow.</p>
+      <p class="soft" style="color:var(--muted)">Only the 4 officer accounts made by the SSC President can sign in. Your phone will ask to use the camera. Tap Allow.</p>
     </form>
     <p class="hint" id="inAppHint" hidden>Inside Messenger or Facebook? Tap ⋮ and choose “Open in browser” so the camera works.</p>
     <p class="soft">Needs mobile data or Wi-Fi · Works best in Chrome or Safari</p>
@@ -167,8 +168,12 @@ h1{margin:0;text-align:center;font:600 clamp(2rem,9vw,2.6rem)/1.05 var(--display
       <button class="pill back" type="button" id="backToScan">← Scanner</button>
       <span class="pill count" id="listCount">— inside</span>
     </div>
-    <h2 class="list-title">Attendance</h2>
-    <div class="seg" role="tablist" aria-label="Show">
+    <div class="seg group" role="tablist" aria-label="Group">
+      <button type="button" role="tab" data-group="student" aria-selected="true">Students <b id="gStu">0/0</b></button>
+      <button type="button" role="tab" data-group="faculty" aria-selected="false">Faculty <b id="gFac">0/0</b></button>
+    </div>
+    <h2 class="list-title" id="listTitle">Student attendance</h2>
+    <div class="seg view" role="tablist" aria-label="Show">
       <button type="button" role="tab" data-show="out" aria-selected="true">Not yet <b id="nOut">0</b></button>
       <button type="button" role="tab" data-show="in" aria-selected="false">Inside <b id="nIn">0</b></button>
       <button type="button" role="tab" data-show="all" aria-selected="false">All <b id="nAll">0</b></button>

@@ -31,6 +31,9 @@ function setup() {
   if (!book.getSheetByName(FACULTY)) buildRecords_(book.insertSheet(FACULTY, 1), 'faculty');
   const blank = book.getSheetByName('Sheet1');
   if (blank && book.getSheets().length > 1 && blank.getLastRow() === 0) book.deleteSheet(blank);
+  officersTab_(book);
+  attendanceTab_('student', book);
+  attendanceTab_('faculty', book);
   if (!props.getProperty('PROOF_FOLDER_ID')) {
     props.setProperty('PROOF_FOLDER_ID', DriveApp.createFolder('Panaghimamat 2026 · Payment screenshots').getId());
   }
@@ -103,7 +106,7 @@ const SITE = 'https://islawqt.github.io/panaghimamat-2026/';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'ticket') return json_(ticket_(p.ref));
-  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe-status-mind-guard-attendance', message: 'Panaghimamat RSVP is running.' });
+  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe-status-mind-guard-attendance-officers', message: 'Panaghimamat RSVP is running.' });
 }
 
 /* ---------- Tickets ----------
@@ -423,48 +426,120 @@ function saveScreenshot_(proof, name) {
   return folder.createFile(Utilities.newBlob(bytes, proof.mime, fileName)).getUrl();
 }
 
-/* ---------- Door check-in (officer scanner at /scanner/) ----------
- * Officers unlock the scanner with the code saved in Project Settings > Script properties > OFFICER_CODE.
- * A ticket admits once: the first scan writes the time and officer into "Checked in". */
-function officerOk_(code) {
-  const expected = String(PropertiesService.getScriptProperties().getProperty('OFFICER_CODE') || '').trim();
-  if (!expected) fail_('The officer code is not set up yet. Add OFFICER_CODE in the Apps Script project settings.');
+/* ---------- Officer accounts (scanner at /scanner/) ----------
+ * Up to 4 officers. The President types each officer's name, username and password
+ * into the "Officers" tab (rows 6 to 9). Only those 4 rows count. Keep the Sheet private. */
+const OFFICERS = 'Officers', MAX_OFFICERS = 4;
+function officersTab_(book) {
+  book = book || book_();
+  let sh = book.getSheetByName(OFFICERS);
+  if (sh) return sh;
+  sh = book.insertSheet(OFFICERS);
+  sh.getRange(1, 1, 1, 3).merge().setValue('Panaghimamat 2026 · Scanner officers')
+    .setBackground(WINE).setFontColor(CREAM).setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center');
+  sh.getRange(2, 1, 1, 3).merge().setValue('Up to 4 officers. Fill rows 6 to 9 only. Officers sign in to the scanner with their username and password.')
+    .setFontColor(GOLD).setWrap(true);
+  sh.getRange(3, 1, 1, 3).merge().setValue('Keep this Sheet private. Change a password here any time; it works on the next scan.').setFontColor(GOLD);
+  sh.getRange(5, 1, 1, 3).setValues([['Name (shown in attendance)', 'Username', 'Password']])
+    .setBackground(WINE).setFontColor(CREAM).setFontWeight('bold');
+  sh.getRange(6, 1, MAX_OFFICERS, 3).setBackground(PAPER).setNumberFormat('@');
+  [220, 160, 160].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  sh.setFrozenRows(5);
+  return sh;
+}
+// Returns { name, username } or throws. Wrong passwords lock that username for 10 minutes after 8 tries.
+function officerLogin_(d) {
+  const user = String(d.user || '').trim().toLowerCase().slice(0, 40);
+  const pass = String(d.pass || '').slice(0, 80);
+  if (!user || !pass) fail_('Please sign in with your officer username and password.');
   const cache = CacheService.getScriptCache();
-  const fails = Number(cache.get('officer_fails') || 0);
-  if (fails >= 20) fail_('Too many wrong codes. Wait 10 minutes and try again.');
-  if (String(code || '').trim() !== expected) {
-    cache.put('officer_fails', String(fails + 1), 600);
-    fail_('That officer code is not right.');
+  const key = 'officer_fail:' + user;
+  const fails = Number(cache.get(key) || 0);
+  if (fails >= 8) fail_('Too many wrong passwords. Wait 10 minutes or ask the President.');
+  const rows = officersTab_().getRange(6, 1, MAX_OFFICERS, 3).getValues();
+  const hit = rows.find((r) => String(r[1]).trim().toLowerCase() === user && String(r[2]) !== '' && String(r[2]) === pass);
+  if (!hit) {
+    cache.put(key, String(fails + 1), 600);
+    fail_(rows.some((r) => String(r[1]).trim()) ? 'Wrong username or password.' : 'No officer accounts yet. The President adds them in the Officers tab of the Sheet.');
   }
+  return { name: String(hit[0]).trim().replace(/\s+/g, ' ').slice(0, 40) || user, username: user };
 }
 
 function officer_(d) {
-  try { officerOk_(d.code); } catch (err) { return { ok: false, message: err.userMessage || 'Could not check the code.' }; }
-  return { ok: true, stats: checkinStats_() };
+  try {
+    const who = officerLogin_(d);
+    return { ok: true, officer: who.name, stats: checkinStats_() };
+  } catch (err) {
+    return { ok: false, message: err.userMessage || 'Could not sign in.' };
+  }
+}
+
+/* ---------- Attendance tabs ----------
+ * One tab for students, one for faculty. Each check-in adds a row with the time; an undo marks it void. */
+const ATTENDANCE = { student: 'Attendance · Students', faculty: 'Attendance · Faculty' };
+function attendanceTab_(group, book) {
+  book = book || book_();
+  let sh = book.getSheetByName(ATTENDANCE[group]);
+  if (sh) return sh;
+  sh = book.insertSheet(ATTENDANCE[group]);
+  const student = group === 'student';
+  const headers = student ? ['Time in', 'Name', 'Year & Section', 'Scanned by', 'How', 'Status', 'Ticket ref']
+    : ['Time in', 'Name', 'Scanned by', 'How', 'Status', 'Ticket ref'];
+  const n = headers.length, status = String.fromCharCode(64 + headers.indexOf('Status') + 1);
+  sh.getRange(1, 1, 1, n).merge().setValue('Panaghimamat 2026 · Attendance · ' + (student ? 'Students' : 'Faculty'))
+    .setBackground(WINE).setFontColor(CREAM).setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center');
+  sh.getRange(2, 1, 1, 2).setValues([['PRESENT', 'VOIDED']]).setFontColor(GOLD).setFontWeight('bold').setHorizontalAlignment('center');
+  sh.getRange(3, 1, 1, 2).setFormulas([[`=COUNTIF(${status}6:${status},"Present")`, `=COUNTIF(${status}6:${status},"Void*")`]])
+    .setFontColor(WINE).setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center');
+  sh.getRange(5, 1, 1, n).setValues([headers]).setBackground(WINE).setFontColor(CREAM).setFontWeight('bold');
+  (student ? [140, 230, 120, 150, 110, 200, 300] : [140, 230, 150, 110, 200, 300]).forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  sh.setFrozenRows(5);
+  return sh;
+}
+function logAttendance_(guest, ref, by, how) {
+  const sh = attendanceTab_(guest.group);
+  const row = [new Date(), guest.name];
+  if (guest.group === 'student') row.push(guest.section);
+  row.push(by, how, 'Present', ref);
+  sh.appendRow(row);
+  sh.getRange(sh.getLastRow(), 1).setNumberFormat('mmm d, h:mm am/pm');
+}
+function voidAttendance_(group, ref, by) {
+  const sh = attendanceTab_(group);
+  if (sh.getLastRow() < 6) return;
+  const headers = sh.getRange(5, 1, 1, sh.getLastColumn()).getValues()[0];
+  const st = headers.indexOf('Status'), rf = headers.indexOf('Ticket ref');
+  const rows = sh.getRange(6, 1, sh.getLastRow() - 5, headers.length).getValues();
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i][rf] === ref && rows[i][st] === 'Present') {
+      sh.getRange(6 + i, st + 1).setValue('Void · undone by ' + by + ' · ' + Utilities.formatDate(new Date(), 'Asia/Manila', 'h:mm a'));
+      return;
+    }
+  }
 }
 
 function checkinStats_() {
   const book = book_();
-  let paid = 0, inside = 0;
-  [book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), book.getSheetByName(FACULTY)].forEach((sheet) => {
+  const stats = { paid: 0, inside: 0, student: { paid: 0, inside: 0 }, faculty: { paid: 0, inside: 0 } };
+  [[book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), 'student'], [book.getSheetByName(FACULTY), 'faculty']].forEach(([sheet, group]) => {
     if (!sheet || sheet.getLastRow() < 6) return;
     const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
     const rows = sheet.getRange(6, 1, sheet.getLastRow() - 5, headers.length).getValues();
     const pay = headers.indexOf('Payment'), chk = headers.indexOf('Checked in');
     rows.forEach((r) => {
-      if (String(r[pay]).trim() === 'Paid ✓') paid++;
-      if (chk >= 0 && String(r[chk]).trim()) inside++;
+      if (String(r[pay]).trim() === 'Paid ✓') { stats.paid++; stats[group].paid++; }
+      if (chk >= 0 && String(r[chk]).trim()) { stats.inside++; stats[group].inside++; }
     });
   });
-  return { paid, inside };
+  return stats;
 }
 
 function checkin_(d) {
   try {
-    officerOk_(d.code);
+    const who = officerLogin_(d);
     const ref = String(d.ref || '').trim().toUpperCase().replace(/^.*REF=/, '');
     if (!/^PH26-[A-F0-9]{32}$/.test(ref)) return { ok: true, result: 'invalid', message: 'This is not a Panaghimamat ticket.' };
-    const officer = (String(d.officer || '').trim().replace(/\s+/g, ' ').slice(0, 40) || 'Officer') + (d.manual ? ' (from list)' : '');
+    const officer = who.name + (d.manual ? ' (from list)' : '');
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(15000)) fail_('Busy. Scan again.');
     try {
@@ -485,6 +560,7 @@ function checkin_(d) {
         if (already) return { ok: true, result: 'used', guest, message: 'Already checked in: ' + already, stats: checkinStats_() };
         const stamp = Utilities.formatDate(new Date(), 'Asia/Manila', 'MMM d, h:mm a') + ' · ' + officer;
         sheet.getRange(hit.getRow(), columns['Checked in']).setValue(stamp);
+        logAttendance_(guest, ref, who.name, d.manual ? 'From list' : 'QR scan');
         SpreadsheetApp.flush();
         return { ok: true, result: 'admitted', guest, ref, message: 'Checked in ' + stamp, stats: checkinStats_() };
       }
@@ -678,10 +754,10 @@ function resendTicket_(d) {
 }
 
 /* ---------- Attendance list (scanner) ----------
- * Officers see every paid, attending guest and who is inside. Officers only (needs the code). */
+ * Officers see every paid, attending guest and who is inside. Signed-in officers only. */
 function attendance_(d) {
   try {
-    officerOk_(d.code);
+    officerLogin_(d);
     const book = book_();
     const guests = [];
     [[book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), 'student'], [book.getSheetByName(FACULTY), 'faculty']].forEach(([sheet, group]) => {
@@ -706,19 +782,20 @@ function attendance_(d) {
 // Undo a check-in (wrong person scanned, or the ticket owner was not there). The real owner can then be scanned.
 function undoCheckin_(d) {
   try {
-    officerOk_(d.code);
+    const who = officerLogin_(d);
     const ref = String(d.ref || '').trim().toUpperCase();
     if (!/^PH26-[A-F0-9]{32}$/.test(ref)) fail_('This is not a Panaghimamat ticket.');
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(15000)) fail_('Busy. Try again.');
     try {
       const book = book_();
-      for (const sheet of [book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), book.getSheetByName(FACULTY)]) {
+      for (const [sheet, group] of [[book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), 'student'], [book.getSheetByName(FACULTY), 'faculty']]) {
         if (!sheet || sheet.getLastRow() < 6) continue;
         const columns = referenceColumns_(sheet);
         const hit = findReply_(sheet, columns.Reference, ref);
         if (!hit) continue;
         sheet.getRange(hit.getRow(), columns['Checked in']).setValue('');
+        voidAttendance_(group, ref, who.name);
         SpreadsheetApp.flush();
         return { ok: true, stats: checkinStats_() };
       }
