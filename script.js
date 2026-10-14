@@ -284,17 +284,25 @@
     try {
       const d = await post({ action: 'lookup', group: FACULTY ? 'faculty' : 'student', name });
       if (cleanName().toLowerCase() !== lookedUp) return; // name changed while waiting
-      if (!d.ok || !d.found) { $('dupNote').hidden = true; return; }
+      if (!d.ok || !d.found) { returning(false); return; }
       const when = d.repliedOn ? ` on <b>${d.repliedOn.replace(/[<>&]/g, '')}</b>` : '';
       $('dupText').innerHTML = d.hasEmail
-        ? `You already replied${when}, and we have your email. Your QR ticket is sent there once your payment is verified. Check Spam too. Sending this form again updates that reply.`
-        : `You already replied${when}. No need to fill this in again. Just add your email so we can send your QR ticket.`;
+        ? `You already replied${when}, and we have your email. Your QR ticket is sent there once your payment is verified. Check Spam too. To change your reply, message an SSC officer.`
+        : `You already replied${when}. No need to fill in the form again. Just add your email so we can send your QR ticket. It is shared only with the SSC.`;
       $('dupEmailRow').hidden = !!d.hasEmail;
-      $('dupNote').hidden = false;
+      $('dupNotMe').hidden = false;
+      returning(true);
     } catch { lookedUp = ''; }
   }
+  // A returning guest sees only their name and the email box; the rest of the form is hidden.
+  function returning(on) {
+    $('dupNote').hidden = !on;
+    $('rsvpForm').classList.toggle('returning', on);
+    if (!on) $('dupErr').hidden = true;
+  }
+  $('dupNotMe').addEventListener('click', () => { returning(false); $('section') ? $('section').focus() : $('rsvpForm').querySelector('input[name=attendance]').focus(); });
   $('fullName').addEventListener('blur', checkEarlierReply);
-  $('fullName').addEventListener('input', () => { if (cleanName().toLowerCase() !== lookedUp) $('dupNote').hidden = true; });
+  $('fullName').addEventListener('input', () => { if (cleanName().toLowerCase() !== lookedUp) { returning(false); lookedUp = ''; } });
   async function saveDupEmail() {
     const email = $('dupEmail').value.trim().toLowerCase();
     const oops = (m) => { $('dupErr').textContent = m; $('dupErr').hidden = false; };
@@ -305,6 +313,7 @@
       const d = await post({ action: 'addEmail', group: FACULTY ? 'faculty' : 'student', name: cleanName(), email });
       if (!d.ok) return oops(d.message || 'Could not save your email. Please try again.');
       $('dupEmailRow').hidden = true;
+      $('dupNotMe').hidden = true;
       const safe = email.replace(/[<>&]/g, '');
       $('dupText').innerHTML = d.added
         ? `Saved. Your QR ticket will be sent to <b>${safe}</b> once your payment is verified. Already verified? Expect it within 5 minutes. Check Spam too.`
