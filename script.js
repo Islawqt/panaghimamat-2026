@@ -78,7 +78,9 @@
   const slipNote = document.createElement('span');
   slipNote.textContent = 'A celebration awaits your reply';
   replySlip.append(slipKicker, slipTitle, slipNote);
-  envelope.append(replySlip);
+  envelope.querySelector('.env-papers').append(replySlip);
+  // Like a real envelope, paper comes out fully before it unfolds, and goes back in the same way.
+  const OUT = 'translateY(-104%)';
 
   if (config.eventTheme) {
     $('themeValue').textContent = config.eventTheme;
@@ -106,7 +108,7 @@
     envelope.classList.add('flap-up');
     await anim(flap, [{ transform: 'rotateX(90deg)' }, { transform: 'rotateX(180deg)' }], { duration: 420, easing: EASE_OUT });
     // 3. the letter glides out
-    await anim(letter, [{ transform: 'translateY(0)' }, { transform: 'translateY(-46%)' }], { duration: 760, easing: EASE_IN_OUT });
+    await anim(letter, [{ transform: 'translateY(0)' }, { transform: OUT }], { duration: 900, easing: EASE_IN_OUT });
     // 4. the letter unfolds into the full invitation
     layer.hidden = false;
     card.scrollTop = 0;
@@ -185,7 +187,7 @@
       const place = () => {
         // Upward follows the finger; downward resists. A small sideways tilt makes it feel like paper.
         const y = dy < 0 ? dy : dy * 0.25;
-        replySlip.style.transform = `translate(${dx * 0.12}px, calc(${SLIP_PEEK}% + ${y}px)) rotate(${dx * 0.03}deg)`;
+        replySlip.style.transform = `translateY(calc(${SLIP_PEEK}% + ${y}px)) rotate(${Math.max(-4, Math.min(4, dx * 0.03))}deg)`;
       };
       const finish = async () => {
         if (done) return;
@@ -201,7 +203,7 @@
         hint.innerHTML = hintHTML;
         try { navigator.vibrate && navigator.vibrate(18); } catch {}
         const from = replySlip.style.transform || `translateY(${SLIP_PEEK}%)`;
-        await anim(replySlip, [{ transform: from, opacity: 1 }, { transform: `translate(${dx * 0.3}px, -260%) rotate(${dx * 0.05 - 4}deg)`, opacity: 0 }], { duration: 560, easing: 'cubic-bezier(.45,0,.7,.2)' });
+        await anim(replySlip, [{ transform: from, opacity: 1 }, { transform: 'translateY(-260%) rotate(-3deg)', opacity: 0 }], { duration: 560, easing: 'cubic-bezier(.45,0,.7,.2)' });
         resolve();
       };
       const down = (e) => {
@@ -243,7 +245,7 @@
       letter.classList.add('is-used');
       letter.style.opacity = '';
       layer.hidden = true;
-      await anim(letter, [{ transform: 'translateY(-46%) rotate(0deg)' }, { transform: 'translateY(-74%) rotate(-3deg)' }], { duration: 520, easing: EASE_IN_OUT });
+      await anim(letter, [{ transform: `${OUT} rotate(0deg)` }, { transform: 'translateY(-74%) rotate(-3deg)' }], { duration: 620, easing: EASE_IN_OUT });
       $('envelopeHint').hidden = true;
       // Keep the flap open: the reply slip emerges only after the letter is tucked in.
       replySlip.hidden = false;

@@ -66,6 +66,10 @@ main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:14
 .envelope{position:relative;width:100%;aspect-ratio:1.58}
 .env-back{position:absolute;inset:0;border-radius:2px;background:var(--liner);
   box-shadow:inset 0 0 0 7px #d8c6a2,inset 0 0 0 8px rgba(90,60,25,.35),inset 0 10px 24px rgba(0,0,0,.45),0 22px 36px rgba(0,0,0,.55),0 4px 10px rgba(0,0,0,.4)}
+.env-papers{position:absolute;inset:0;z-index:2;pointer-events:none;
+  /* Papers can only leave through the open top: anything past the side or bottom walls is hidden. */
+  clip-path:polygon(-80% -700%,180% -700%,180% 0,100% 0,100% 100%,0 100%,0 0,-80% 0)}
+.env-papers .env-reply{pointer-events:auto}
 .env-letter{position:absolute;left:7%;right:7%;top:6%;height:86%;z-index:2;color:var(--ink);
   display:flex;flex-direction:column;align-items:center;padding-top:10%;gap:5px;will-change:transform}
 .env-letter:before{content:'';position:absolute;inset:8px;border:1px solid rgba(155,110,50,.45)}
