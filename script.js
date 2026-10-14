@@ -334,10 +334,12 @@
     const attendance = selected('attendance');
     const method = attendance === 'Attending' ? selected('paymentMethod') : '';
     const reason = $('reason').value.trim().replace(/\s+/g, ' ');
+    const email = attendance === 'Attending' ? $('email').value.trim().toLowerCase() : '';
     if (fullName.split(' ').length < 2) return error('Please type your full name (first and last name).');
     if (!FACULTY && section.length < 2) return error('Please type your year and section, e.g. BSIS 4A.');
     if (!attendance) return error('Please tell us if you can attend.');
     if (attendance === 'Not attending' && reason.length < 3) return error('Please give a short reason for not attending.');
+    if (attendance === 'Attending' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('email').focus(); return error('Please type your email so we can send your QR ticket.'); }
     if (attendance === 'Attending' && !method) return error('Please choose how you will pay.');
     if (!$('consent').checked) return error('Please tick the agreement box to continue.');
     const isOnline = method === 'GCash' || method === 'Bank Transfer';
@@ -347,7 +349,7 @@
     try {
       let proof = null;
       if (isOnline && (!preview || $('proofImage').files.length)) proof = await imageProof($('proofImage'));
-      const payload = { group: FACULTY ? 'faculty' : 'student', fullName, section, attendance, paymentMethod: method, reason: attendance === 'Not attending' ? reason : '', proof, website: '' };
+      const payload = { group: FACULTY ? 'faculty' : 'student', fullName, section, attendance, paymentMethod: method, reason: attendance === 'Not attending' ? reason : '', email, proof, website: '' };
       const amount = attendance === 'Attending' ? FEE : 0;
       if (preview) return showAcknowledgment({ ...payload, amount, receiptId: `DEMO-${Date.now().toString(36).toUpperCase()}`, saved: false });
       payload.requestId = await requestIdFor(payload);
@@ -379,6 +381,18 @@
     $('receiptDetails').replaceChildren(...rows.map(([k, v]) => { const w = document.createElement('div'); const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = String(v); w.append(dt, dd); return w; }));
     $('receiptFooter').textContent = !d.saved ? 'Sample only. Not saved or validated.' : 'Event acknowledgment only, not an official receipt. Online payments are checked by the SSC.';
     $('printReceipt').disabled = !d.saved;
+    // Attending guests get a ticket; the QR stays locked until the SSC verifies payment.
+    const slot = $('ticketSlot');
+    if (attending && window.renderTicket) {
+      window.renderTicket(slot, { name: d.fullName, section: d.section, group: FACULTY ? 'faculty' : 'student', reference: d.receiptId, paid: false, email: d.email, preview: !d.saved });
+      slot.hidden = false;
+      $('receiptCard').hidden = true;
+      $('replyBody').textContent = !d.saved ? 'This is a test preview. Nothing was saved and no payment was recorded.'
+        : 'Here is your ticket. Keep your reference until your QR arrives by email.';
+    } else {
+      slot.hidden = true;
+      $('receiptCard').hidden = false;
+    }
     showStep(3);
   }
   $('printReceipt').addEventListener('click', () => window.print());

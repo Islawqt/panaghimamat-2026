@@ -281,3 +281,38 @@ textarea:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgb
 .env-reply:before{content:'';position:absolute;inset:9px;border:1px solid var(--rule)}
 .env-reply strong{font:600 clamp(1.2rem,5.3vw,1.7rem)/1.15 var(--serif);color:var(--oxblood)}
 .env-reply>span:last-child{font:italic .9rem var(--serif);color:var(--ink-soft)}
+
+/* ---------- Ticket ---------- */
+.ticket{display:grid;grid-template-columns:1fr;margin:0 0 18px;overflow:hidden}
+.ticket .tk-main{padding:22px 20px 18px;border-bottom:2px dashed rgba(110,75,35,.45);position:relative}
+.ticket .tk-main:before,.ticket .tk-main:after{content:'';position:absolute;bottom:-11px;width:20px;height:20px;border-radius:50%;background:#2a060a;box-shadow:inset 0 0 6px rgba(0,0,0,.6)}
+.ticket .tk-main:before{left:-10px}.ticket .tk-main:after{right:-10px}
+.tk-admit{margin:0;font-size:.66rem;letter-spacing:.26em;text-transform:uppercase;color:var(--oxblood);font-weight:600}
+.tk-event{margin:4px 0 0;font:500 1.9rem/1.05 var(--serif);color:var(--ink)}
+.tk-sub{margin:2px 0 12px;font:italic .95rem var(--serif);color:var(--ink-soft)}
+.tk-info{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:0}
+.tk-info dt{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
+.tk-info dd{margin:0;font:600 1.05rem/1.2 var(--serif);color:var(--ink);overflow-wrap:anywhere}
+.tk-info div:first-child{grid-column:1/-1}
+.tk-info div:first-child dd{font-size:1.3rem}
+.tk-stub{padding:18px 20px 16px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.tk-qr{position:relative;width:180px;height:180px;background:#fffaf0;border:1px solid #cbb48c;padding:8px;display:grid;place-items:center}
+.tk-qr-code,.tk-qr-code svg{width:100%;height:100%;display:block}
+.tk-qr-lock{position:absolute;inset:8px;opacity:.28;filter:blur(2.5px);
+  background:repeating-linear-gradient(0deg,#2e1913 0 6px,transparent 6px 12px),repeating-linear-gradient(90deg,#2e1913 0 6px,transparent 6px 14px)}
+.tk-lock-text{position:relative;margin:0;padding:6px 10px;background:var(--paper);border:1px solid var(--rule);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--oxblood);font-weight:600}
+.tk-status{margin:10px 0 2px;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+.tk-status.ok{color:#3f5a2e;font-weight:600}
+.tk-ref{margin:0;font:.72rem/1.3 ui-monospace,Menlo,Consolas,monospace;color:var(--ink-faint);word-break:break-all;max-width:260px}
+.tk-note{margin:0;padding:12px 18px 16px;border-top:1px solid var(--rule);font:italic .98rem/1.45 var(--serif);color:var(--oxblood);text-align:center}
+.tk-note strong{font-style:normal}
+@media(min-width:600px){
+  .ticket{grid-template-columns:1fr 230px}
+  .ticket .tk-main{border-bottom:0;border-right:2px dashed rgba(110,75,35,.45)}
+  .ticket .tk-main:before,.ticket .tk-main:after{bottom:auto;left:auto;right:-11px}
+  .ticket .tk-main:before{top:-10px}.ticket .tk-main:after{bottom:-10px;top:auto}
+  .tk-stub{justify-content:center}
+  .tk-note{grid-column:1/-1}
+}
+.ticket-page .lead{margin-bottom:14px}
+@media print{#ticketSlot,#ticketSlot *,.ticket-page .ticket{visibility:visible}.ticket{box-shadow:none}}

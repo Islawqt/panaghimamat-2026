@@ -22,7 +22,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Pinyon+Script&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261014-fold">
   <script src="config.js" defer></script>
-  <script src="script.js?v=20261014-fold" defer></script>
+  <script src="assets/vendor/qrcode.js" defer></script>
+  <script src="assets/ticket.js?v=20261014-ticket" defer></script>
+  <script src="script.js?v=20261014-ticket" defer></script>
 </head>
 <body data-audience="student">
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -180,6 +182,7 @@
 
           <div id="paymentFields" hidden>
             <div class="fee-line"><span>Your contribution</span><b id="feeValue">₱—</b></div>
+            <div class="form-field"><label for="email">Email for your QR ticket <span aria-hidden="true">*</span></label><input id="email" name="email" type="email" maxlength="120" autocomplete="email" inputmode="email" placeholder="e.g. stephen.paubapo@gmail.com"><small class="field-help">Your QR ticket is generated once your payment is verified. An SSC officer will send it to this email.</small></div>
             <fieldset><legend>How will you pay? <span aria-hidden="true">*</span></legend>
               <div class="method-list">
                 <label class="method"><input type="radio" name="paymentMethod" value="Cash"><span><strong>Cash</strong><small>To the Treasurer or President Ms. Anthony Sedoro</small></span></label>
@@ -196,7 +199,7 @@
 
           <div class="honeypot" aria-hidden="true"><label>Leave this empty<input id="companyWebsite" name="website" tabindex="-1" autocomplete="off"></label></div>
 
-          <label class="consent"><input id="consent" type="checkbox" required><span>I agree that my reply and any payment screenshot will be shared with the STI Supreme Student Council for event coordination only.</span></label>
+          <label class="consent"><input id="consent" type="checkbox" required><span>I agree that my reply, email and any payment screenshot will be shared with the STI Supreme Student Council for event coordination only.</span></label>
           <p class="connection-status" id="connectionStatus" role="status"></p>
           <p class="form-error" id="formError" role="alert" hidden></p>
           <button class="primary-btn full" type="submit" id="submitBtn">Send my reply</button>
@@ -208,6 +211,7 @@
         <div class="rule-ornament big" aria-hidden="true">✦</div>
         <h2 id="replyHeading" class="page-title">Thank you, <em>truly.</em></h2>
         <p class="lead" id="replyBody">Your reply has been received.</p>
+        <div id="ticketSlot" hidden></div>
         <div class="paper paper-card receipt" id="receiptCard">
           <div class="receipt-top"><span>STI College Valencia</span><span>SSC · 2026</span></div>
           <h3 id="receiptTitle">RSVP Acknowledgment</h3>
@@ -215,7 +219,7 @@
           <dl id="receiptDetails"></dl>
           <p class="receipt-foot" id="receiptFooter">An acknowledgment for event coordination, not an official receipt.</p>
         </div>
-        <div class="actions"><button type="button" class="primary-btn full" id="printReceipt">Print / save acknowledgment</button><button type="button" class="ghost-btn full" id="restartButton">Back to the envelope</button></div>
+        <div class="actions"><button type="button" class="primary-btn full" id="printReceipt">Save / print</button><button type="button" class="ghost-btn full" id="restartButton">Back to the envelope</button></div>
       </section>
     </main>
 

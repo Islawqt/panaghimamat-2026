@@ -51,7 +51,7 @@ function backend({ legacy = false } = {}) {
   };
   vm.createContext(context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/Code.gs'), 'utf8'), context);
-  return { save: context.save_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
+  return { save: context.save_, ticket: context.ticket_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
 
@@ -131,3 +131,30 @@ test('existing records and extra officer columns survive metadata migration', ()
   assert.equal(b.students.rows[4][8], 'Officer notes');
   assert.equal(b.students.rows[6][8], '');
 });
+
+for (const group of ['student', 'faculty']) {
+  test(`${group}: email and ticket link are saved; QR unlocks only after "Paid ✓"`, () => {
+    const b = backend(), sh = group === 'student' ? b.students : b.faculty;
+    const id = b.save(reply(group, { email: 'Guest@Example.com' }));
+    const h = sh.rows[4];
+    assert.equal(sh.rows[5][h.indexOf('Email')], 'guest@example.com');
+    assert.match(sh.rows[5][h.indexOf('Ticket')], new RegExp(`ticket/\\?ref=${id}`));
+    let t = b.ticket(id.toLowerCase());
+    assert.equal(t.ok, true);
+    assert.equal(t.paid, false);
+    assert.equal(t.group, group);
+    assert.equal(t.name, 'Test Guest');
+    assert.equal('email' in t, false);
+    sh.rows[5][h.indexOf('Payment')] = 'Paid ✓';
+    t = b.ticket(id);
+    assert.equal(t.paid, true);
+  });
+  test(`${group}: bad or unknown ticket references are refused; declined replies get no ticket`, () => {
+    const b = backend(), sh = group === 'student' ? b.students : b.faculty;
+    assert.equal(b.ticket('PH26-123').ok, false);
+    assert.equal(b.ticket('PH26-' + 'A'.repeat(32)).ok, false);
+    b.save(reply(group, { attendance: 'Not attending', paymentMethod: '', reason: 'Out of town' }));
+    assert.equal(sh.rows[5][sh.rows[4].indexOf('Ticket')], '');
+    assert.throws(() => b.save(reply(group, { email: 'not-an-email' })), /valid email/);
+  });
+}

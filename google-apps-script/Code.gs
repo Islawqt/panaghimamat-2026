@@ -96,8 +96,56 @@ function book_() {
 }
 
 /* ---------- Web endpoints ---------- */
-function doGet() {
-  return json_({ ok: true, version: '2026-10-14-idempotent', message: 'Panaghimamat RSVP is running.' });
+const SITE = 'https://islawqt.github.io/panaghimamat-2026/';
+
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  if (p.action === 'ticket') return json_(ticket_(p.ref));
+  return json_({ ok: true, version: '2026-10-14-tickets', message: 'Panaghimamat RSVP is running.' });
+}
+
+/* ---------- Tickets ----------
+ * A ticket is looked up by its reference (PH26- plus 32 random characters, so it cannot be guessed).
+ * The QR only unlocks after an officer sets Payment to "Paid ✓". Email is never returned. */
+function ticket_(ref) {
+  ref = String(ref || '').trim().toUpperCase();
+  if (!/^PH26-[A-F0-9]{32}$/.test(ref)) return { ok: false, message: 'This ticket link is not valid.' };
+  const book = book_();
+  const tabs = [[book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), 'student'], [book.getSheetByName(FACULTY), 'faculty']];
+  for (const [sheet, group] of tabs) {
+    if (!sheet || sheet.getLastRow() < 6) continue;
+    const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const col = (t) => headers.indexOf(t) + 1;
+    if (!col('Reference')) continue;
+    const hit = findReply_(sheet, col('Reference'), ref);
+    if (!hit) continue;
+    const row = sheet.getRange(hit.getRow(), 1, 1, headers.length).getValues()[0];
+    const get = (t) => (col(t) ? row[col(t) - 1] : '');
+    return {
+      ok: true, group, reference: ref,
+      name: String(get('Name')), section: String(get('Year & Section') || ''),
+      attending: get('Attending') === 'Yes',
+      paid: String(get('Payment')).trim() === 'Paid ✓'
+    };
+  }
+  return { ok: false, message: 'We could not find this ticket. Please message an SSC officer.' };
+}
+
+/* Run once from the editor to add ticket links to replies saved before tickets existed. */
+function fillTicketLinks() {
+  const book = book_();
+  [book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), book.getSheetByName(FACULTY)].forEach((sheet) => {
+    if (!sheet) return;
+    const columns = referenceColumns_(sheet);
+    const count = sheet.getLastRow() - 5;
+    if (count < 1) return;
+    const refs = sheet.getRange(6, columns.Reference, count, 1).getValues();
+    const attending = sheet.getRange(6, sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0].indexOf('Attending') + 1, count, 1).getValues();
+    sheet.getRange(6, columns.Ticket, count, 1).setValues(refs.map(([r], i) => [r && attending[i][0] === 'Yes' ? ticketLink_(r) : '']));
+  });
+}
+function ticketLink_(ref) {
+  return '=HYPERLINK("' + SITE + 'ticket/?ref=' + ref + '","Open ticket")';
 }
 
 function doPost(e) {
@@ -133,6 +181,9 @@ function save_(d) {
   if (name.length < 2) fail_('Please type your full name.');
   if (group === 'student' && section.length < 2) fail_('Please type your year and section, e.g. BSIS 4A.');
   if (!attending && reason.length < 3) fail_('Please give a short reason for not attending.');
+  const email = text(d.email, 120).toLowerCase();
+  // Required on the new page; optional here so replies from older cached pages still save.
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail_('Please type a valid email for your QR ticket.');
 
   let payment = 'Not attending';
   const online = attending && (method === 'GCash' || method === 'Bank Transfer');
@@ -152,7 +203,7 @@ function save_(d) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(25000)) fail_('The SSC records are busy. Please send the same reply again in a moment.');
   try {
-    return saveLocked_({ group, name, section, attending, payment, reason, online, proof: d.proof, requestId, fingerprint });
+    return saveLocked_({ group, name, section, attending, payment, reason, online, proof: d.proof, requestId, fingerprint, email });
   } finally {
     lock.releaseLock();
   }
@@ -167,13 +218,13 @@ function hash_(value) {
 function referenceColumns_(sheet) {
   const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
   const columns = {};
-  ['Reference', 'Request ID', 'Reply fingerprint'].forEach((title) => {
+  ['Reference', 'Request ID', 'Reply fingerprint', 'Email', 'Ticket'].forEach((title) => {
     let column = headers.indexOf(title) + 1;
     if (!column) {
       column = headers.length + 1;
       if (column > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), 1);
       sheet.getRange(5, column).setValue(title).setBackground(WINE).setFontColor(CREAM).setFontWeight('bold');
-      sheet.setColumnWidth(column, title === 'Reference' ? 300 : 180);
+      sheet.setColumnWidth(column, title === 'Reference' ? 300 : title === 'Email' ? 230 : title === 'Ticket' ? 120 : 180);
       headers.push(title);
     }
     columns[title] = column;
@@ -190,7 +241,7 @@ function findReply_(sheet, column, value) {
 }
 
 function saveLocked_(d) {
-  const { group, name, section, attending, payment, reason, online, proof, requestId, fingerprint } = d;
+  const { group, name, section, attending, payment, reason, online, proof, requestId, fingerprint, email } = d;
   const safe = (s) => (/^[=+\-@]/.test(s) ? "'" + s : s); // keep typed text from acting as a formula
   const book = book_();
   const sheet = group === 'student'
@@ -218,6 +269,8 @@ function saveLocked_(d) {
   row[columns.Reference - 1] = receiptId;
   row[columns['Request ID'] - 1] = requestId;
   row[columns['Reply fingerprint'] - 1] = fingerprint;
+  row[columns.Email - 1] = email ? safe(email) : '';
+  row[columns.Ticket - 1] = attending ? ticketLink_(receiptId) : '';
   sheet.appendRow(row);
   SpreadsheetApp.flush(); // commit reply + reference together before releasing the lock
   sheet.getRange(sheet.getLastRow(), 1).setNumberFormat('mmm d, h:mm am/pm'); // appendRow resets the date style
