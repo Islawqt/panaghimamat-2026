@@ -12,6 +12,7 @@
     const res = await fetch(`${api}?action=ticket&ref=${encodeURIComponent(ref)}`, { credentials: 'omit', signal: ctrl.signal });
     const d = await res.json();
     if (!d.ok) return say(d.message || 'We could not find this ticket.');
+    if (!d.reference) return say('Tickets are not open yet. Please try this link again later.');
     if (!d.attending) return say('This reply says you are not attending, so there is no ticket for it.');
     window.renderTicket($('ticketSlot'), { ...d, paid: d.paid === true });
     say(d.paid ? 'Show this QR code at the entrance on October 23.' : 'Your payment has not been verified yet. Your QR appears here once the SSC confirms it.');

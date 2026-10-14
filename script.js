@@ -260,7 +260,17 @@
   }
   // Wake the Google script early so the actual sending is quicker.
   let warmed = false;
-  function warmUp() { if (warmed || !configured) return; warmed = true; fetch(`${API}?action=ping`, { credentials: 'omit' }).catch(() => {}); }
+  // Tickets switch on only when the deployed Google script supports them, so this page
+  // keeps working the old way until the SSC redeploys Code.gs.
+  let ticketsReady = false;
+  function warmUp() {
+    if (warmed || !configured) return;
+    warmed = true;
+    fetch(`${API}?action=ping`, { credentials: 'omit' }).then((r) => r.json()).then((d) => {
+      ticketsReady = /tickets/.test(String(d && d.version || ''));
+      updatePayment();
+    }).catch(() => {});
+  }
 
   /* Students type their year & section */
   const cleanSection = () => ($('section') ? $('section').value.trim().replace(/\s+/g, ' ').toUpperCase() : '');
@@ -271,6 +281,7 @@
     const attending = attendance === 'Attending';
     $('reasonWrap').hidden = attendance !== 'Not attending';
     $('paymentFields').hidden = !attending;
+    $('emailWrap').hidden = !ticketsReady;
     $('feeValue').textContent = `₱${FEE}`;
     const method = selected('paymentMethod');
     $('proofWrap').hidden = !(attending && (method === 'GCash' || method === 'Bank Transfer'));
@@ -334,12 +345,12 @@
     const attendance = selected('attendance');
     const method = attendance === 'Attending' ? selected('paymentMethod') : '';
     const reason = $('reason').value.trim().replace(/\s+/g, ' ');
-    const email = attendance === 'Attending' ? $('email').value.trim().toLowerCase() : '';
+    const email = attendance === 'Attending' && ticketsReady ? $('email').value.trim().toLowerCase() : '';
     if (fullName.split(' ').length < 2) return error('Please type your full name (first and last name).');
     if (!FACULTY && section.length < 2) return error('Please type your year and section, e.g. BSIS 4A.');
     if (!attendance) return error('Please tell us if you can attend.');
     if (attendance === 'Not attending' && reason.length < 3) return error('Please give a short reason for not attending.');
-    if (attendance === 'Attending' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('email').focus(); return error('Please type your email so we can send your QR ticket.'); }
+    if (attendance === 'Attending' && ticketsReady && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('email').focus(); return error('Please type your email so we can send your QR ticket.'); }
     if (attendance === 'Attending' && !method) return error('Please choose how you will pay.');
     if (!$('consent').checked) return error('Please tick the agreement box to continue.');
     const isOnline = method === 'GCash' || method === 'Bank Transfer';
@@ -383,7 +394,7 @@
     $('printReceipt').disabled = !d.saved;
     // Attending guests get a ticket; the QR stays locked until the SSC verifies payment.
     const slot = $('ticketSlot');
-    if (attending && window.renderTicket) {
+    if (attending && window.renderTicket && (ticketsReady || !d.saved)) {
       window.renderTicket(slot, { name: d.fullName, section: d.section, group: FACULTY ? 'faculty' : 'student', reference: d.receiptId, paid: false, email: d.email, preview: !d.saved });
       slot.hidden = false;
       $('receiptCard').hidden = true;
