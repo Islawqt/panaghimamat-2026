@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="../">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2a060a">
+<title>Door Scanner · Panaghimamat 2026</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wine:#2a060a; --wine-2:#3e0b12; --wine-3:#5c121c; --cream:#f6ead6; --card:#fffaf2; --tan:#efe0c4; --ink:#2e1913; --muted:#6a5244;
+  --gold:#d1a766; --gold-dark:#9b7536; --on-gold:#2a0a0d; --line:#e2d0b0; --stitch:#d4bb92;
+  --ok:#2f8a4a; --ok-bg:#1f5c33; --warn:#d48a1c; --bad:#b3262f;
+  --display:"Cormorant Garamond", Georgia, serif; --body:"Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100svh;background:var(--wine);color:var(--cream);font:1rem/1.5 var(--body);overflow-x:hidden;
+  background-image:radial-gradient(120% 70% at 20% 0%,rgba(140,30,44,.45),transparent 60%),radial-gradient(90% 70% at 100% 100%,rgba(120,22,36,.35),transparent 65%)}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--gold)!important;outline-offset:2px!important}
+button,input{font:inherit}
+.shell{max-width:28rem;min-height:100svh;margin-inline:auto;padding:max(14px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:1rem}
+.screen{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1.1rem}
+.eyebrow{align-self:center;font-weight:800;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;padding:.55rem 1.1rem;border-radius:999px;background:var(--cream);color:var(--wine-3);outline:2px dashed var(--stitch);outline-offset:-6px}
+h1{margin:0;text-align:center;font:600 clamp(2rem,9vw,2.6rem)/1.05 var(--display);color:var(--cream)}
+.lead{margin:0;text-align:center;font-weight:700;color:#ead8bd}
+.soft{margin:0;text-align:center;color:#cdb79c;font-size:.92rem}
+.seal{align-self:center;width:9.5rem;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:var(--gold);box-shadow:0 6px 0 var(--gold-dark),0 18px 34px rgba(0,0,0,.45);position:relative}
+.seal:after{content:"";position:absolute;inset:11px;border-radius:50%;border:3px dashed rgba(255,246,233,.7)}
+.seal svg{width:46%;height:auto;color:var(--wine-3)}
+.card{background:var(--card);color:var(--ink);border-radius:24px;padding:1.3rem 1.2rem;display:grid;gap:.75rem;outline:2px dashed var(--stitch);outline-offset:-9px}
+.card label{font-weight:800}
+.card input{width:100%;min-height:54px;padding:.75rem .9rem;border:2px solid var(--line);border-radius:14px;background:#fff6e9;color:var(--ink);font-weight:700;font-size:1.05rem}
+::placeholder{color:#9b8574;opacity:1}
+.err{margin:0;color:var(--bad);font-weight:800}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;min-height:58px;padding:.7rem 1.2rem;border-radius:16px;border:0;cursor:pointer;font-weight:800;font-size:1.08rem;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.btn.gold{background:var(--gold);color:var(--on-gold);box-shadow:0 5px 0 var(--gold-dark)}
+.btn.gold:active{transform:translateY(3px);box-shadow:0 2px 0 var(--gold-dark)}
+.btn.ghost{background:transparent;color:var(--cream);border:2px solid rgba(246,234,214,.4);min-height:52px;font-size:1rem}
+.btn.cream{background:var(--cream);color:var(--wine-3)}
+.btn[disabled]{opacity:.55;cursor:default}
+.hint{margin:0;padding:.75rem .9rem;border-radius:14px;background:var(--tan);color:var(--ink);font-weight:700;font-size:.92rem;line-height:1.4}
+
+/* scanner */
+.cam{justify-content:flex-start;gap:.8rem}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.pill{display:inline-flex;align-items:center;gap:.4rem;min-height:38px;padding:.35rem .85rem;border-radius:999px;font-weight:800;font-size:.92rem;white-space:nowrap}
+.pill.count{background:var(--gold);color:var(--on-gold)}
+.pill.who{background:var(--wine-2);color:#d8c2a5;max-width:55%;overflow:hidden;text-overflow:ellipsis}
+.finder{position:relative;border-radius:24px;overflow:hidden;background:#000;box-shadow:0 0 0 6px var(--cream),0 14px 30px rgba(0,0,0,.5);width:100%;aspect-ratio:1}
+.finder video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.frame{position:absolute;inset:16%;pointer-events:none}
+.frame i{position:absolute;width:22%;height:22%;border:5px solid var(--gold);border-radius:6px}
+.frame i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+.frame i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+.frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+.frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+.laser{position:absolute;left:18%;right:18%;height:3px;top:20%;background:linear-gradient(90deg,transparent,var(--gold),transparent);box-shadow:0 0 12px var(--gold);animation:sweep 2.2s ease-in-out infinite alternate;pointer-events:none}
+@keyframes sweep{to{top:80%}}
+.finder .msg{position:absolute;inset:0;display:grid;place-items:center;padding:1.2rem;text-align:center;background:var(--wine-2);color:var(--cream);font-weight:700}
+.busy{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:rgba(0,0,0,.65);color:#fff;padding:.4rem .9rem;border-radius:999px;font-weight:800;font-size:.9rem}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.tip{margin:0;text-align:center;font-weight:700;color:#ead8bd}
+
+/* result */
+.result{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;justify-content:center;gap:1rem;padding:max(24px,env(safe-area-inset-top)) 20px max(24px,env(safe-area-inset-bottom));text-align:center;color:#fff;animation:pop .22s ease-out}
+@keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+.result.admitted{background:var(--ok-bg)}
+.result.used{background:#8a5a12}
+.result.unpaid,.result.declined,.result.invalid,.result.error{background:#7d141c}
+.result .icon{align-self:center;width:7.5rem;height:7.5rem;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.16);font:800 4rem/1 var(--body)}
+.result .verdict{margin:0;font:800 clamp(2.2rem,11vw,3.2rem)/1 var(--body);letter-spacing:.02em;text-transform:uppercase}
+.result .name{margin:0;font:600 clamp(1.8rem,8vw,2.4rem)/1.1 var(--display)}
+.result .meta{margin:0;font-weight:800;font-size:1.1rem;opacity:.9}
+.result .detail{margin:0;font-weight:700;opacity:.85}
+.result .btn{margin-top:.6rem;min-height:64px;font-size:1.2rem}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.laser{animation:none;top:50%}.result{animation:none}}
+</style>
+<script src="config.js" defer></script>
+<script src="assets/vendor/jsQR.js" defer></script>
+<script src="assets/scanner.js?v=20261014" defer></script>
+</head>
+<body>
+<main class="shell">
+
+  <!-- 1. Unlock -->
+  <section class="screen" id="sStart">
+    <span class="eyebrow">SSC Door Scanner</span>
+    <div class="seal" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><path d="M8 8h3v3H8zM13 13h3v3h-3zM13 8h3M8 13v3"/></svg>
+    </div>
+    <h1>Panaghimamat 2026</h1>
+    <p class="lead">Scan each guest’s QR ticket at the entrance. Each ticket gets in once.</p>
+    <form class="card" id="startForm" novalidate>
+      <label for="officerName">Your name</label>
+      <input id="officerName" type="text" autocomplete="name" maxlength="40" placeholder="e.g. Jhodel">
+      <label for="officerCode">Officer code</label>
+      <input id="officerCode" type="password" autocomplete="off" maxlength="40" placeholder="From the SSC President">
+      <p class="err" id="startErr" role="alert" hidden></p>
+      <button class="btn gold" type="submit" id="startBtn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <span>Open the scanner</span>
+      </button>
+      <p class="soft" style="color:var(--muted)">Your phone will ask to use the camera. Tap Allow.</p>
+    </form>
+    <p class="hint" id="inAppHint" hidden>Inside Messenger or Facebook? Tap ⋮ and choose “Open in browser” so the camera works.</p>
+    <p class="soft">Needs mobile data or Wi-Fi · Works best in Chrome or Safari</p>
+  </section>
+
+  <!-- 2. Scanner -->
+  <section class="screen cam" id="sCam" hidden>
+    <div class="topbar">
+      <span class="pill count" id="countPill">— inside</span>
+      <span class="pill who" id="whoPill"></span>
+    </div>
+    <div class="finder" id="finder">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="laser" id="laser" aria-hidden="true"></div>
+      <div class="busy" id="busy" hidden>Checking…</div>
+      <div class="msg" id="camMsg" hidden></div>
+    </div>
+    <p class="tip">Point the camera at the guest’s QR code</p>
+    <div class="row">
+      <button class="btn ghost" type="button" id="typeBtn">Type code</button>
+      <button class="btn ghost" type="button" id="flipBtn">Flip camera</button>
+    </div>
+    <form class="card" id="typeForm" hidden novalidate>
+      <label for="typeInput">Ticket reference</label>
+      <input id="typeInput" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="PH26-…">
+      <button class="btn gold" type="submit">Check in</button>
+    </form>
+    <button class="btn ghost" type="button" id="lockBtn">Lock scanner</button>
+  </section>
+
+  <!-- Result -->
+  <section class="result" id="result" hidden role="alert" aria-live="assertive">
+    <div class="icon" id="rIcon" aria-hidden="true">✓</div>
+    <p class="verdict" id="rVerdict">Welcome</p>
+    <p class="name" id="rName"></p>
+    <p class="meta" id="rMeta"></p>
+    <p class="detail" id="rDetail"></p>
+    <button class="btn cream" type="button" id="nextBtn">Scan next guest</button>
+  </section>
+
+</main>
+</body>
+</html>

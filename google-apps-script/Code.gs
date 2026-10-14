@@ -101,7 +101,7 @@ const SITE = 'https://islawqt.github.io/panaghimamat-2026/';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'ticket') return json_(ticket_(p.ref));
-  return json_({ ok: true, version: '2026-10-14-tickets', message: 'Panaghimamat RSVP is running.' });
+  return json_({ ok: true, version: '2026-10-14-tickets-checkin', message: 'Panaghimamat RSVP is running.' });
 }
 
 /* ---------- Tickets ----------
@@ -151,6 +151,8 @@ function ticketLink_(ref) {
 function doPost(e) {
   try {
     const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (data.action === 'checkin') return json_(checkin_(data));
+    if (data.action === 'officer') return json_(officer_(data));
     return json_({ ok: true, receiptId: save_(data) });
   } catch (err) {
     return json_({ ok: false, message: err.userMessage || 'Could not save your reply. Please try again.' });
@@ -218,13 +220,13 @@ function hash_(value) {
 function referenceColumns_(sheet) {
   const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
   const columns = {};
-  ['Reference', 'Request ID', 'Reply fingerprint', 'Email', 'Ticket'].forEach((title) => {
+  ['Reference', 'Request ID', 'Reply fingerprint', 'Email', 'Ticket', 'Checked in'].forEach((title) => {
     let column = headers.indexOf(title) + 1;
     if (!column) {
       column = headers.length + 1;
       if (column > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), 1);
       sheet.getRange(5, column).setValue(title).setBackground(WINE).setFontColor(CREAM).setFontWeight('bold');
-      sheet.setColumnWidth(column, title === 'Reference' ? 300 : title === 'Email' ? 230 : title === 'Ticket' ? 120 : 180);
+      sheet.setColumnWidth(column, title === 'Reference' ? 300 : title === 'Email' ? 230 : title === 'Ticket' ? 120 : title === 'Checked in' ? 200 : 180);
       headers.push(title);
     }
     columns[title] = column;
@@ -286,4 +288,78 @@ function saveScreenshot_(proof, name) {
   const fileName = name.replace(/[^\w ]/g, '').slice(0, 40) + ' ' + Date.now() + '.' + ext;
   const folder = DriveApp.getFolderById(PropertiesService.getScriptProperties().getProperty('PROOF_FOLDER_ID'));
   return folder.createFile(Utilities.newBlob(bytes, proof.mime, fileName)).getUrl();
+}
+
+/* ---------- Door check-in (officer scanner at /scanner/) ----------
+ * Officers unlock the scanner with the code saved in Project Settings > Script properties > OFFICER_CODE.
+ * A ticket admits once: the first scan writes the time and officer into "Checked in". */
+function officerOk_(code) {
+  const expected = String(PropertiesService.getScriptProperties().getProperty('OFFICER_CODE') || '').trim();
+  if (!expected) fail_('The officer code is not set up yet. Add OFFICER_CODE in the Apps Script project settings.');
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get('officer_fails') || 0);
+  if (fails >= 20) fail_('Too many wrong codes. Wait 10 minutes and try again.');
+  if (String(code || '').trim() !== expected) {
+    cache.put('officer_fails', String(fails + 1), 600);
+    fail_('That officer code is not right.');
+  }
+}
+
+function officer_(d) {
+  try { officerOk_(d.code); } catch (err) { return { ok: false, message: err.userMessage || 'Could not check the code.' }; }
+  return { ok: true, stats: checkinStats_() };
+}
+
+function checkinStats_() {
+  const book = book_();
+  let paid = 0, inside = 0;
+  [book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), book.getSheetByName(FACULTY)].forEach((sheet) => {
+    if (!sheet || sheet.getLastRow() < 6) return;
+    const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const rows = sheet.getRange(6, 1, sheet.getLastRow() - 5, headers.length).getValues();
+    const pay = headers.indexOf('Payment'), chk = headers.indexOf('Checked in');
+    rows.forEach((r) => {
+      if (String(r[pay]).trim() === 'Paid ✓') paid++;
+      if (chk >= 0 && String(r[chk]).trim()) inside++;
+    });
+  });
+  return { paid, inside };
+}
+
+function checkin_(d) {
+  try {
+    officerOk_(d.code);
+    const ref = String(d.ref || '').trim().toUpperCase().replace(/^.*REF=/, '');
+    if (!/^PH26-[A-F0-9]{32}$/.test(ref)) return { ok: true, result: 'invalid', message: 'This is not a Panaghimamat ticket.' };
+    const officer = String(d.officer || '').trim().replace(/\s+/g, ' ').slice(0, 40) || 'Officer';
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(15000)) fail_('Busy. Scan again.');
+    try {
+      const book = book_();
+      const tabs = [[book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), 'student'], [book.getSheetByName(FACULTY), 'faculty']];
+      for (const [sheet, group] of tabs) {
+        if (!sheet || sheet.getLastRow() < 6) continue;
+        const columns = referenceColumns_(sheet);
+        const hit = findReply_(sheet, columns.Reference, ref);
+        if (!hit) continue;
+        const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
+        const row = sheet.getRange(hit.getRow(), 1, 1, headers.length).getValues()[0];
+        const get = (t) => (headers.indexOf(t) >= 0 ? row[headers.indexOf(t)] : '');
+        const guest = { name: String(get('Name')), section: String(get('Year & Section') || ''), group };
+        if (get('Attending') !== 'Yes') return { ok: true, result: 'declined', guest, message: 'This reply said they are not attending.' };
+        if (String(get('Payment')).trim() !== 'Paid ✓') return { ok: true, result: 'unpaid', guest, message: 'Payment is not verified yet (' + get('Payment') + ').' };
+        const already = String(get('Checked in')).trim();
+        if (already) return { ok: true, result: 'used', guest, message: 'Already checked in: ' + already, stats: checkinStats_() };
+        const stamp = Utilities.formatDate(new Date(), 'Asia/Manila', 'MMM d, h:mm a') + ' · ' + officer;
+        sheet.getRange(hit.getRow(), columns['Checked in']).setValue(stamp);
+        SpreadsheetApp.flush();
+        return { ok: true, result: 'admitted', guest, message: 'Checked in ' + stamp, stats: checkinStats_() };
+      }
+      return { ok: true, result: 'invalid', message: 'No reply has this ticket. Check the name in the Sheet.' };
+    } finally {
+      lock.releaseLock();
+    }
+  } catch (err) {
+    return { ok: false, message: err.userMessage || 'Could not check in. Try again.' };
+  }
 }
