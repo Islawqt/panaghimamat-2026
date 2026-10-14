@@ -4,7 +4,9 @@
  *
  * Update steps:
  *   1. Paste this whole file into the Apps Script project and save.
+ *      Also add QR.gs as a second file named "QR" (makes the QR picture for ticket emails).
  *   2. Deploy > Manage deployments > Edit > Version: New version > Deploy.
+ *   3. Once: run setupTicketEmails from the editor and allow email sending.
  *
  * Tabs (already formatted in the SSC sheet; setup() builds any that are missing):
  *   Students      one row per student reply, filled automatically from row 6
@@ -101,7 +103,7 @@ const SITE = 'https://islawqt.github.io/panaghimamat-2026/';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'ticket') return json_(ticket_(p.ref));
-  return json_({ ok: true, version: '2026-10-14-tickets-checkin', message: 'Panaghimamat RSVP is running.' });
+  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail', message: 'Panaghimamat RSVP is running.' });
 }
 
 /* ---------- Tickets ----------
@@ -220,13 +222,13 @@ function hash_(value) {
 function referenceColumns_(sheet) {
   const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
   const columns = {};
-  ['Reference', 'Request ID', 'Reply fingerprint', 'Email', 'Ticket', 'Checked in'].forEach((title) => {
+  ['Reference', 'Request ID', 'Reply fingerprint', 'Email', 'Ticket', 'Checked in', 'Ticket sent'].forEach((title) => {
     let column = headers.indexOf(title) + 1;
     if (!column) {
       column = headers.length + 1;
       if (column > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), 1);
       sheet.getRange(5, column).setValue(title).setBackground(WINE).setFontColor(CREAM).setFontWeight('bold');
-      sheet.setColumnWidth(column, title === 'Reference' ? 300 : title === 'Email' ? 230 : title === 'Ticket' ? 120 : title === 'Checked in' ? 200 : 180);
+      sheet.setColumnWidth(column, title === 'Reference' ? 300 : title === 'Email' ? 230 : title === 'Ticket' ? 120 : title === 'Checked in' || title === 'Ticket sent' ? 200 : 180);
       headers.push(title);
     }
     columns[title] = column;
@@ -362,4 +364,98 @@ function checkin_(d) {
   } catch (err) {
     return { ok: false, message: err.userMessage || 'Could not check in. Try again.' };
   }
+}
+
+/* ---------- Ticket emails ----------
+ * Every 5 minutes: each guest marked "Paid ✓" who is attending, has an email and no "Ticket sent" yet
+ * gets their QR ticket by email. To send one again, clear that guest's "Ticket sent" cell.
+ * Sent from the Google account that runs this script. */
+const EVENT_LINE = 'Friday, October 23, 2026 · 1:00 – 5:00 PM';
+const VENUE_LINE = 'Regidor Country Homes, Carnai, Valencia City';
+
+function setupTicketEmails() {
+  ScriptApp.getProjectTriggers()
+    .filter((t) => t.getHandlerFunction() === 'sendPendingTickets')
+    .forEach((t) => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('sendPendingTickets').timeBased().everyMinutes(5).create();
+  const sent = sendPendingTickets();
+  Logger.log('Ticket emails are on (every 5 minutes). Sent now: ' + sent + '. Emails left today: ' + MailApp.getRemainingDailyQuota());
+}
+
+function sendPendingTickets() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return 0; // a save or another run is busy; the next run catches up
+  let sent = 0;
+  try {
+    const book = book_();
+    const tabs = [[book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), 'student'], [book.getSheetByName(FACULTY), 'faculty']];
+    for (const [sheet, group] of tabs) {
+      if (!sheet || sheet.getLastRow() < 6) continue;
+      const columns = referenceColumns_(sheet);
+      const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
+      const rows = sheet.getRange(6, 1, sheet.getLastRow() - 5, headers.length).getValues();
+      const at = (t) => headers.indexOf(t);
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const ref = String(r[at('Reference')]).trim();
+        const email = String(r[at('Email')]).trim().toLowerCase();
+        if (String(r[at('Payment')]).trim() !== 'Paid ✓' || r[at('Attending')] !== 'Yes') continue;
+        if (String(r[at('Ticket sent')]).trim() || !/^PH26-[A-F0-9]{32}$/.test(ref) || !email) continue;
+        const cell = sheet.getRange(6 + i, columns['Ticket sent']);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { cell.setValue('Not sent · check email'); continue; }
+        if (MailApp.getRemainingDailyQuota() < 1) return sent; // Gmail daily limit reached; continues tomorrow
+        const guest = { name: String(r[at('Name')]).trim(), section: at('Year & Section') >= 0 ? String(r[at('Year & Section')]).trim() : '', group, reference: ref };
+        try {
+          MailApp.sendEmail(ticketEmail_(guest, email));
+          cell.setValue(Utilities.formatDate(new Date(), 'Asia/Manila', 'MMM d, h:mm a') + ' → ' + email);
+          sent++;
+        } catch (err) {
+          cell.setValue('Not sent · check email');
+        }
+        SpreadsheetApp.flush();
+      }
+    }
+  } finally {
+    lock.releaseLock();
+  }
+  return sent;
+}
+
+function qrBlob_(ref) {
+  const qr = qrcode(0, 'M');
+  qr.addData(ref);
+  qr.make();
+  const data = qr.createDataURL(8, 4).split(',')[1];
+  return Utilities.newBlob(Utilities.base64Decode(data), 'image/gif', 'Panaghimamat-ticket-QR.gif');
+}
+
+function ticketEmail_(g, email) {
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const first = g.name.split(' ')[0] || g.name;
+  const who = g.group === 'faculty' ? 'Faculty' : (g.section ? 'Student · ' + g.section : 'Student');
+  const link = SITE + 'ticket/?ref=' + g.reference;
+  const qr = qrBlob_(g.reference);
+  const html =
+    '<div style="background:#5c121c;padding:24px 12px;font-family:Georgia,serif">' +
+    '<div style="max-width:460px;margin:0 auto;background:#fffaf2;border:1px solid #9b7536;border-radius:6px;padding:28px 24px;text-align:center;color:#3a2a1e">' +
+    '<p style="margin:0;font-size:12px;letter-spacing:3px;color:#9b7536">STI COLLEGE VALENCIA · SUPREME STUDENT COUNCIL</p>' +
+    '<h1 style="margin:14px 0 4px;font-size:26px;font-weight:normal;color:#5c121c">Panaghimamat 2026</h1>' +
+    '<p style="margin:0 0 18px;font-style:italic">Teachers’ Day Celebration</p>' +
+    '<p style="margin:0 0 16px;text-align:left">Hi ' + esc(first) + ',<br>Your payment is verified. Here is your ticket.</p>' +
+    '<img src="cid:qr" width="240" height="240" alt="Your ticket QR code" style="display:block;margin:0 auto;width:240px;height:240px;image-rendering:pixelated">' +
+    '<p style="margin:12px 0 2px;font-size:20px;color:#5c121c">' + esc(g.name) + '</p>' +
+    '<p style="margin:0 0 16px;color:#7a6650">' + esc(who) + '</p>' +
+    '<p style="margin:0;font-size:15px">' + EVENT_LINE + '<br>' + VENUE_LINE + '</p>' +
+    '<p style="margin:18px 0;padding:12px;background:#f6ecdc;border-radius:4px;font-size:14px;text-align:left">' +
+    'Show this QR at the entrance. An SSC officer will scan it. It admits one person, once, so please don’t share it.</p>' +
+    '<a href="' + link + '" style="display:inline-block;background:#5c121c;color:#f6ead6;text-decoration:none;padding:10px 20px;border-radius:4px">Open your ticket online</a>' +
+    '<p style="margin:18px 0 0;font-size:11px;color:#9b8a74">Reference ' + g.reference + '</p>' +
+    '</div></div>';
+  const body = 'Hi ' + first + ',\n\nYour payment is verified. Your Panaghimamat 2026 QR ticket is attached.\n\n' +
+    g.name + ' · ' + who + '\n' + EVENT_LINE + '\n' + VENUE_LINE + '\n\n' +
+    'Show the QR at the entrance. It admits one person, once.\nOpen your ticket online: ' + link + '\n\nSTI College Valencia · Supreme Student Council';
+  return {
+    to: email, name: 'STI SSC Valencia', subject: 'Your Panaghimamat 2026 ticket',
+    body, htmlBody: html, inlineImages: { qr }, attachments: [qr.copyBlob()]
+  };
 }

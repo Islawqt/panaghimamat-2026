@@ -51,11 +51,11 @@
       const note = el('p', 'tk-note');
       note.append('Your QR ticket is generated once the SSC verifies your payment. ');
       if (d.email) {
-        note.append('An officer will send it to ');
+        note.append('It will be sent to ');
         note.append(el('strong', '', d.email));
         note.append('.');
       } else {
-        note.append('An officer will send it to the email you gave.');
+        note.append('It will be sent to the email you gave.');
       }
       t.append(note);
     }

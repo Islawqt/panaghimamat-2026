@@ -7,7 +7,8 @@ const crypto = require('node:crypto');
 
 // In-memory Google service doubles: never contact the production sheet or Drive.
 function backend({ legacy = false } = {}) {
-  let locked = false, uploads = 0, failAfterAppend = false, flushes = 0;
+  let locked = false, uploads = 0, failAfterAppend = false, flushes = 0, quota = 100;
+  const mails = [], triggers = [];
   const cache = new Map();
   function sheet(student) {
     const headers = ['Date', 'Name', ...(student ? ['Year & Section'] : []), 'Attending', 'Contribution', 'Payment', 'Screenshot', 'Reason (if not attending)'];
@@ -47,13 +48,24 @@ function backend({ legacy = false } = {}) {
     Utilities: {
       getUuid: () => crypto.randomUUID(), DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
       computeDigest: (algorithm, value) => [...crypto.createHash(algorithm).update(value).digest()],
-      base64Decode: (s) => [...Buffer.from(s, 'base64')], newBlob: (...args) => args, formatDate: () => 'Oct 23, 1:05 PM'
+      base64Decode: (s) => [...Buffer.from(s, 'base64')], formatDate: () => 'Oct 23, 1:05 PM',
+      newBlob: (bytes, type, name) => ({ bytes, type, name, copyBlob() { return { ...this }; } })
     },
+    MailApp: {
+      getRemainingDailyQuota: () => quota,
+      sendEmail(m) { assert.ok(locked); if (/bounce/.test(m.to)) throw Error('Invalid email'); quota--; mails.push(m); }
+    },
+    ScriptApp: {
+      getProjectTriggers: () => [...triggers], deleteTrigger: (t) => triggers.splice(triggers.indexOf(t), 1),
+      newTrigger: (fn) => ({ timeBased: () => ({ everyMinutes: (n) => ({ create: () => triggers.push({ fn, n, getHandlerFunction: () => fn }) }) }) })
+    },
+    Logger: { log() {} },
     DriveApp: { getFolderById: () => ({ createFile: () => { assert.ok(locked); uploads++; return { getUrl: () => `https://drive.google.com/file/d/mock-${uploads}` }; } }) }
   };
   vm.createContext(context);
+  vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/QR.gs'), 'utf8'), context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/Code.gs'), 'utf8'), context);
-  return { save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
+  return { send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
 
@@ -184,3 +196,58 @@ for (const group of ['student', 'faculty']) {
     assert.equal(b.locked, false);
   });
 }
+
+test('paid guests with an email get their QR ticket once; others wait', () => {
+  const b = backend();
+  const paid = b.save(reply('student', { email: 'ana@x.com', fullName: 'Ana Cruz' }));
+  b.save(reply('student', { email: 'ben@x.com', fullName: 'Ben Uy' }));            // not paid yet
+  b.save(reply('student', { fullName: 'Cy Lim' }));                                // paid, no email
+  const fac = b.save(reply('faculty', { email: 'prof@x.com', fullName: 'Prof Dee' }));
+  const h = b.students.rows[4], pay = h.indexOf('Payment');
+  b.students.rows[5][pay] = 'Paid ✓'; b.students.rows[7][pay] = 'Paid ✓';
+  b.faculty.rows[5][b.faculty.rows[4].indexOf('Payment')] = 'Paid ✓';
+
+  b.setupMail();
+  assert.equal(b.triggers.length, 1); assert.equal(b.triggers[0].n, 5);
+  b.setupMail();
+  assert.equal(b.triggers.length, 1, 'setup replaces the old trigger');
+  assert.deepEqual(b.mails.map((m) => m.to).sort(), ['ana@x.com', 'prof@x.com']);
+  const ana = b.mails.find((m) => m.to === 'ana@x.com');
+  assert.match(ana.htmlBody, /cid:qr/); assert.match(ana.htmlBody, new RegExp('ticket/\\?ref=' + paid));
+  assert.match(ana.htmlBody, /Ana Cruz/); assert.match(ana.htmlBody, /BSIS 4A/);
+  assert.equal(ana.inlineImages.qr.type, 'image/gif');
+  assert.match(b.mails.find((m) => m.to === 'prof@x.com').body, new RegExp(fac));
+  const sent = h.indexOf('Ticket sent');
+  assert.match(b.students.rows[5][sent], /→ ana@x.com/);
+  assert.equal(b.students.rows[6][sent] ?? '', '');
+  assert.equal(b.send(), 0, 'nobody gets it twice');
+
+  b.students.rows[6][pay] = 'Paid ✓';                       // officer verifies Ben later
+  b.students.rows[7][h.indexOf('Email')] = 'cy@x.com';       // Cy's email typed in from a PM
+  assert.equal(b.send(), 2);
+  assert.equal(b.mails.length, 4);
+  assert.equal(b.locked, false);
+});
+test('ticket emails stop at the daily limit and mark bad addresses', () => {
+  const b = backend();
+  b.save(reply('student', { email: 'bounce@x.com', fullName: 'Bad Mail' }));
+  b.save(reply('student', { email: 'ok@x.com', fullName: 'Good Mail' }));
+  const h = b.students.rows[4];
+  b.students.rows[5][h.indexOf('Payment')] = 'Paid ✓'; b.students.rows[6][h.indexOf('Payment')] = 'Paid ✓';
+  b.setQuota(0);
+  assert.equal(b.send(), 0);
+  assert.equal(b.students.rows[6][h.indexOf('Ticket sent')] ?? '', '');
+  b.setQuota(10);
+  assert.equal(b.send(), 1);
+  assert.equal(b.students.rows[5][h.indexOf('Ticket sent')], 'Not sent · check email');
+  assert.equal(b.locked, false);
+});
+test('QR.gs makes a GIF picture without a browser', () => {
+  const ctx = {}; vm.createContext(ctx);
+  vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/QR.gs'), 'utf8'), ctx);
+  const ref = 'PH26-4D7228F7CC7942B2A94D4E87106243C1';
+  const q = ctx.qrcode(0, 'M'); q.addData(ref); q.make();
+  const url = q.createDataURL(8, 4);
+  assert.match(url, /^data:image\/gif;base64,R0lGOD/);
+  assert.ok(q.getModuleCount() >= 21);
+});
