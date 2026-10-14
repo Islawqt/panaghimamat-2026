@@ -276,23 +276,44 @@
 
   /* Replied before? Offer to just add an email instead of a second reply. */
   const post = (body, ms = 20000) => callApi(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }, ms);
-  let lookedUp = '';
-  async function checkEarlierReply() {
+  let lookedUp = '', checking = null, typingTimer = 0;
+  const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+  // Shows a spinner inside the name box and holds the form until the check is done.
+  function nameState(state) {
+    $('nameCheck').dataset.state = state;
+    $('nameCheckText').textContent = state === 'checking' ? 'Checking…' : '';
+    $('rsvpForm').classList.toggle('checking', state === 'checking');
+    $('submitBtn').disabled = state === 'checking';
+  }
+  function checkEarlierReply() {
     const name = cleanName();
-    if (!dedupeReady || preview || name.split(' ').length < 2 || name.toLowerCase() === lookedUp) return;
+    if (!dedupeReady || preview || name.split(' ').length < 2) return Promise.resolve();
+    if (name.toLowerCase() === lookedUp) return checking || Promise.resolve();
     lookedUp = name.toLowerCase();
-    try {
-      const d = await post({ action: 'lookup', group: FACULTY ? 'faculty' : 'student', name });
-      if (cleanName().toLowerCase() !== lookedUp) return; // name changed while waiting
-      if (!d.ok || !d.found) { returning(false); return; }
-      const when = d.repliedOn ? ` on <b>${d.repliedOn.replace(/[<>&]/g, '')}</b>` : '';
-      $('dupText').innerHTML = d.hasEmail
-        ? `You already replied${when}, and we have your email. Your QR ticket is sent there once your payment is verified. Check Spam too. To change your reply, message an SSC officer.`
-        : `You already replied${when}. No need to fill in the form again. Just add your email so we can send your QR ticket. It is shared only with the SSC.`;
-      $('dupEmailRow').hidden = !!d.hasEmail;
-      $('dupNotMe').hidden = false;
-      returning(true);
-    } catch { lookedUp = ''; }
+    const job = (async () => {
+      nameState('checking');
+      try {
+        // Short minimum so the check reads as a real verification step, not a flicker.
+        const [d] = await Promise.all([post({ action: 'lookup', group: FACULTY ? 'faculty' : 'student', name }), pause(900)]);
+        if (cleanName().toLowerCase() !== lookedUp) return; // name changed while waiting
+        if (!d.ok || !d.found) { returning(false); nameState('ok'); return; }
+        const when = d.repliedOn ? ` on <b>${d.repliedOn.replace(/[<>&]/g, '')}</b>` : '';
+        $('dupText').innerHTML = d.hasEmail
+          ? `You already replied${when}, and we have your email. Your QR ticket is sent there once your payment is verified. Check Spam too. To change your reply, message an SSC officer.`
+          : `You already replied${when}. No need to fill in the form again. Just add your email so we can send your QR ticket. It is shared only with the SSC.`;
+        $('dupEmailRow').hidden = !!d.hasEmail;
+        $('dupNotMe').hidden = false;
+        nameState('found');
+        returning(true);
+      } catch {
+        lookedUp = '';
+        nameState(''); // could not check (no signal): let them continue normally
+      } finally {
+        if (checking === job) checking = null;
+      }
+    })();
+    checking = job;
+    return job;
   }
   // A returning guest sees only their name and the email box; the rest of the form is hidden.
   function returning(on) {
@@ -302,7 +323,11 @@
   }
   $('dupNotMe').addEventListener('click', () => { returning(false); $('section') ? $('section').focus() : $('rsvpForm').querySelector('input[name=attendance]').focus(); });
   $('fullName').addEventListener('blur', checkEarlierReply);
-  $('fullName').addEventListener('input', () => { if (cleanName().toLowerCase() !== lookedUp) { returning(false); lookedUp = ''; } });
+  $('fullName').addEventListener('input', () => {
+    if (cleanName().toLowerCase() !== lookedUp) { returning(false); lookedUp = ''; nameState(''); }
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(checkEarlierReply, 1100); // also check once they pause typing
+  });
   async function saveDupEmail() {
     const email = $('dupEmail').value.trim().toLowerCase();
     const oops = (m) => { $('dupErr').textContent = m; $('dupErr').hidden = false; };
@@ -395,6 +420,8 @@
     if (sending) return;
     clearError();
     if ($('companyWebsite').value) return;
+    await checkEarlierReply(); // finish the name check first
+    if ($('rsvpForm').classList.contains('returning')) { $('dupNote').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     const fullName = cleanName();
     const section = cleanSection();
     const attendance = selected('attendance');

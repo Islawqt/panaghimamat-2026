@@ -169,6 +169,18 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
 .connection-status{text-align:center;font-size:.85rem;color:var(--ink-faint);margin:6px 0 10px}
 .connection-status:empty{display:none}
 .form-error{padding:10px 12px;background:rgba(140,42,50,.12);border-left:3px solid var(--oxblood);color:#6d1620;font-size:.92rem;margin:0 0 12px}
+.name-check{position:relative}
+.name-check-status{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:7px;font:italic .85rem var(--serif);color:var(--ink-soft);pointer-events:none;opacity:0;transition:opacity .25s}
+.name-check[data-state=checking] .name-check-status,.name-check[data-state=ok] .name-check-status,.name-check[data-state=found] .name-check-status{opacity:1}
+.name-check[data-state=checking] input{padding-right:118px}
+.name-check[data-state=ok] input,.name-check[data-state=found] input{padding-right:40px}
+.name-spin,.name-ok{display:none}
+.name-check[data-state=checking] .name-spin{display:block;width:18px;height:18px;border-radius:50%;border:2px solid rgba(155,117,54,.25);border-top-color:var(--oxblood);animation:nameSpin .8s linear infinite}
+.name-check[data-state=ok] .name-ok,.name-check[data-state=found] .name-ok{display:block;color:#2f5a2e;font:700 1.05rem var(--body);font-style:normal;animation:nameOk .35s ease-out}
+@keyframes nameSpin{to{transform:rotate(360deg)}}
+@keyframes nameOk{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+#rsvpForm.checking>:not(:first-child):not(.honeypot){opacity:.45;pointer-events:none;transition:opacity .25s}
+@media (prefers-reduced-motion:reduce){.name-check[data-state=checking] .name-spin{animation-duration:2.4s}}
 .dup-note{margin:-6px 0 16px;padding:12px;border:1px solid var(--gold);background:rgba(201,162,92,.12);font-size:.92rem;line-height:1.45;color:var(--ink)}
 .dup-note p{margin:0}
 .dup-note b{color:var(--oxblood)}
