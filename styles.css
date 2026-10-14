@@ -145,8 +145,8 @@ main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:14
 .form-field>label,fieldset legend{display:block;font-weight:600;font-size:.95rem;margin-bottom:6px}
 .form-field>label span,legend span{color:var(--oxblood-2)}
 fieldset{border:0;padding:0;margin:0 0 16px;min-width:0}
-input[type=text]{width:100%;min-height:48px;padding:10px 12px;background:rgba(255,251,240,.75);border:1px solid #b9a079;border-radius:0;font-size:16px;color:var(--ink)}
-input[type=text]:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgba(109,22,32,.18)}
+input[type=text],input[type=email]{width:100%;min-height:48px;padding:10px 12px;background:rgba(255,251,240,.75);border:1px solid #b9a079;border-radius:0;font-size:16px;color:var(--ink)}
+input[type=text]:focus,input[type=email]:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgba(109,22,32,.18)}
 input::placeholder{color:#a08b70}
 .choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .choice,.method{position:relative;display:flex;align-items:center;gap:10px;min-height:50px;padding:10px 12px;border:1px solid #b9a079;background:rgba(255,251,240,.6);cursor:pointer;transition:background .25s,border-color .25s,box-shadow .25s;color:var(--ink)}
@@ -169,6 +169,12 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
 .connection-status{text-align:center;font-size:.85rem;color:var(--ink-faint);margin:6px 0 10px}
 .connection-status:empty{display:none}
 .form-error{padding:10px 12px;background:rgba(140,42,50,.12);border-left:3px solid var(--oxblood);color:#6d1620;font-size:.92rem;margin:0 0 12px}
+.dup-note{margin:-6px 0 16px;padding:12px;border:1px solid var(--gold);background:rgba(201,162,92,.12);font-size:.92rem;line-height:1.45;color:var(--ink)}
+.dup-note p{margin:0}
+.dup-note b{color:var(--oxblood)}
+.dup-email{display:grid;gap:8px;margin-top:10px}
+.dup-err{margin:8px 0 0 !important;color:#6d1620;font-size:.88rem}
+.dup-email .primary-btn{min-height:46px;padding:10px 14px}
 .honeypot{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 
 /* ---------- Acknowledgment ---------- */

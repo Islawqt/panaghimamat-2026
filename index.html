@@ -20,11 +20,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Pinyon+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261014-fold">
+  <link rel="stylesheet" href="styles.css?v=20261014-dedupe">
   <script src="config.js" defer></script>
   <script src="assets/vendor/qrcode.js" defer></script>
   <script src="assets/ticket.js?v=20261014-mail" defer></script>
-  <script src="script.js?v=20261014-ticket" defer></script>
+  <script src="script.js?v=20261014-dedupe" defer></script>
 </head>
 <body data-audience="student">
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -166,6 +166,15 @@
 
         <form id="rsvpForm" class="paper paper-card form-card" novalidate>
           <div class="form-field"><label for="fullName">Full name <span aria-hidden="true">*</span></label><input id="fullName" name="fullName" type="text" minlength="2" maxlength="100" autocomplete="name" placeholder="e.g. Stephen Dale Paubapo" required></div>
+          <div class="dup-note" id="dupNote" hidden aria-live="polite">
+            <p id="dupText"></p>
+            <div class="dup-email" id="dupEmailRow" hidden>
+              <label for="dupEmail" class="sr-only">Email for your QR ticket</label>
+              <input id="dupEmail" type="email" maxlength="120" autocomplete="email" inputmode="email" placeholder="e.g. name@gmail.com">
+              <button type="button" class="primary-btn" id="dupSave">Add my email</button>
+            </div>
+            <p class="dup-err" id="dupErr" role="alert" hidden></p>
+          </div>
 
           <div class="form-field"><label for="section">Year &amp; section <span aria-hidden="true">*</span></label><input id="section" name="section" type="text" minlength="2" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. BSIS 4A" required></div>
 

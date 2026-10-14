@@ -262,15 +262,61 @@
   let warmed = false;
   // Tickets switch on only when the deployed Google script supports them, so this page
   // keeps working the old way until the SSC redeploys Code.gs.
-  let ticketsReady = false;
+  let ticketsReady = false, dedupeReady = false;
   function warmUp() {
     if (warmed || !configured) return;
     warmed = true;
     fetch(`${API}?action=ping`, { credentials: 'omit' }).then((r) => r.json()).then((d) => {
       ticketsReady = /tickets/.test(String(d && d.version || ''));
+      dedupeReady = /dedupe/.test(String(d && d.version || ''));
+      checkEarlierReply();
       updatePayment();
     }).catch(() => {});
   }
+
+  /* Replied before? Offer to just add an email instead of a second reply. */
+  const post = (body, ms = 20000) => callApi(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }, ms);
+  let lookedUp = '';
+  async function checkEarlierReply() {
+    const name = cleanName();
+    if (!dedupeReady || preview || name.split(' ').length < 2 || name.toLowerCase() === lookedUp) return;
+    lookedUp = name.toLowerCase();
+    try {
+      const d = await post({ action: 'lookup', group: FACULTY ? 'faculty' : 'student', name });
+      if (cleanName().toLowerCase() !== lookedUp) return; // name changed while waiting
+      if (!d.ok || !d.found) { $('dupNote').hidden = true; return; }
+      const when = d.repliedOn ? ` on <b>${d.repliedOn.replace(/[<>&]/g, '')}</b>` : '';
+      $('dupText').innerHTML = d.hasEmail
+        ? `You already replied${when}, and we have your email. Your QR ticket is sent there once your payment is verified. Check Spam too. Sending this form again updates that reply.`
+        : `You already replied${when}. No need to fill this in again. Just add your email so we can send your QR ticket.`;
+      $('dupEmailRow').hidden = !!d.hasEmail;
+      $('dupNote').hidden = false;
+    } catch { lookedUp = ''; }
+  }
+  $('fullName').addEventListener('blur', checkEarlierReply);
+  $('fullName').addEventListener('input', () => { if (cleanName().toLowerCase() !== lookedUp) $('dupNote').hidden = true; });
+  async function saveDupEmail() {
+    const email = $('dupEmail').value.trim().toLowerCase();
+    const oops = (m) => { $('dupErr').textContent = m; $('dupErr').hidden = false; };
+    $('dupErr').hidden = true;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('dupEmail').focus(); return oops('Please type a valid email, e.g. name@gmail.com.'); }
+    $('dupSave').disabled = true; $('dupSave').textContent = 'Saving…';
+    try {
+      const d = await post({ action: 'addEmail', group: FACULTY ? 'faculty' : 'student', name: cleanName(), email });
+      if (!d.ok) return oops(d.message || 'Could not save your email. Please try again.');
+      $('dupEmailRow').hidden = true;
+      const safe = email.replace(/[<>&]/g, '');
+      $('dupText').innerHTML = d.added
+        ? `Saved. Your QR ticket will be sent to <b>${safe}</b> once your payment is verified. Already verified? Expect it within 5 minutes. Check Spam too.`
+        : 'We already have an email for your reply. To change it, message an SSC officer.';
+    } catch {
+      oops('No connection. Please try again.');
+    } finally {
+      $('dupSave').disabled = false; $('dupSave').textContent = 'Add my email';
+    }
+  }
+  $('dupSave').addEventListener('click', saveDupEmail);
+  $('dupEmail').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveDupEmail(); } });
 
   /* Students type their year & section */
   const cleanSection = () => ($('section') ? $('section').value.trim().replace(/\s+/g, ' ').toUpperCase() : '');
@@ -366,7 +412,10 @@
       payload.requestId = await requestIdFor(payload);
       // text/plain keeps this a "simple" request, so the browser sends it straight away (no pre-check round trip).
       const data = await callApi(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }, 45000);
-      if (data.ok === true) showAcknowledgment({ ...payload, amount, receiptId: data.receiptId, saved: true });
+      if (data.ok === true) {
+        showAcknowledgment({ ...payload, amount, receiptId: data.receiptId, saved: true });
+        if (data.merged) $('replyBody').textContent = `You already replied${data.repliedOn ? ' on ' + data.repliedOn : ''}, so we updated that reply instead of making a new one.`;
+      }
       else if (data.notReady) error('The SSC records are being updated. Please try again in a few minutes.');
       else error(data.message || 'Your reply could not be saved. Please try again.');
     } catch (err) {

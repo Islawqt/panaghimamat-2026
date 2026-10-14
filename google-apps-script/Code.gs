@@ -103,7 +103,7 @@ const SITE = 'https://islawqt.github.io/panaghimamat-2026/';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'ticket') return json_(ticket_(p.ref));
-  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail', message: 'Panaghimamat RSVP is running.' });
+  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe', message: 'Panaghimamat RSVP is running.' });
 }
 
 /* ---------- Tickets ----------
@@ -155,7 +155,11 @@ function doPost(e) {
     const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (data.action === 'checkin') return json_(checkin_(data));
     if (data.action === 'officer') return json_(officer_(data));
-    return json_({ ok: true, receiptId: save_(data) });
+    if (data.action === 'lookup') return json_(lookup_(data.group, data.name));
+    if (data.action === 'addEmail') return json_(addEmail_(data));
+    saveInfo_ = {};
+    const receiptId = save_(data);
+    return json_({ ok: true, receiptId, merged: !!saveInfo_.merged, repliedOn: saveInfo_.repliedOn || '' });
   } catch (err) {
     return json_({ ok: false, message: err.userMessage || 'Could not save your reply. Please try again.' });
   }
@@ -264,6 +268,9 @@ function saveLocked_(d) {
     SpreadsheetApp.flush();
     return reference;
   }
+  // Same person replying again: update their first reply instead of adding a second row.
+  const twin = findByName_(sheet, name);
+  if (twin) return mergeReply_(sheet, columns, twin, d, safe);
   const screenshot = online ? '=HYPERLINK("' + saveScreenshot_(proof, name) + '","View")' : '';
   const receiptId = 'PH26-' + Utilities.getUuid().replace(/-/g, '').toUpperCase();
   const row = [new Date(), safe(name)];
@@ -279,6 +286,90 @@ function saveLocked_(d) {
   SpreadsheetApp.flush(); // commit reply + reference together before releasing the lock
   sheet.getRange(sheet.getLastRow(), 1).setNumberFormat('mmm d, h:mm am/pm'); // appendRow resets the date style
   return receiptId;
+}
+
+/* ---------- One reply per person ----------
+ * Names match ignoring case, commas, dots, initials and word order:
+ * "Sabedola, Ailah Marie M." = "Ailah Marie Sabedola". */
+let saveInfo_ = {};
+function nameKey_(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z\u00c0-\u024f\s]/g, ' ').split(/\s+/)
+    .filter((w) => w.length > 1).sort().join(' ');
+}
+function tabFor_(group) {
+  const book = book_();
+  return group === 'faculty' ? book.getSheetByName(FACULTY) : (book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'));
+}
+// Returns { row, headers, values } for the first reply with the same name, or null.
+function findByName_(sheet, name) {
+  const key = nameKey_(name);
+  if (!key || sheet.getLastRow() < 6) return null;
+  const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const nameCol = headers.indexOf('Name');
+  const rows = sheet.getRange(6, 1, sheet.getLastRow() - 5, headers.length).getValues();
+  const i = rows.findIndex((r) => nameKey_(r[nameCol]) === key);
+  return i < 0 ? null : { row: 6 + i, headers, values: rows[i] };
+}
+function repliedOn_(value) {
+  return value instanceof Date ? Utilities.formatDate(value, 'Asia/Manila', 'MMM d, h:mm a') : String(value || '');
+}
+
+// Latest reply wins, except an officer's "Paid ✓" is never undone and a saved email is never replaced.
+function mergeReply_(sheet, columns, twin, d, safe) {
+  const { group, attending, payment, reason, online, proof, requestId, fingerprint, email } = d;
+  const at = (t) => twin.headers.indexOf(t) + 1;
+  const cell = (t) => sheet.getRange(twin.row, at(t));
+  const reference = twin.values[columns.Reference - 1];
+  const paid = String(twin.values[at('Payment') - 1]).trim() === 'Paid ✓';
+  if (email && !String(twin.values[columns.Email - 1]).trim()) sheet.getRange(twin.row, columns.Email).setValue(safe(email));
+  if (!paid) {
+    if (online) cell('Screenshot').setValue('=HYPERLINK("' + saveScreenshot_(proof, d.name) + '","View")');
+    else cell('Screenshot').setValue('');
+    cell('Attending').setValue(attending ? 'Yes' : 'No');
+    cell('Contribution').setValue(attending ? FEE[group] : '');
+    cell('Payment').setValue(payment);
+    cell('Reason (if not attending)').setValue(attending ? '' : safe(reason));
+    sheet.getRange(twin.row, columns.Ticket).setValue(attending && reference ? ticketLink_(reference) : '');
+  }
+  sheet.getRange(twin.row, columns['Request ID']).setValue(requestId);
+  sheet.getRange(twin.row, columns['Reply fingerprint']).setValue(fingerprint);
+  SpreadsheetApp.flush();
+  saveInfo_ = { merged: true, repliedOn: repliedOn_(twin.values[0]) };
+  return reference;
+}
+
+/* The invitation asks this when a guest types their name, so people who replied before
+ * can just add an email instead of filling the form again. Only says whether a reply exists. */
+function lookup_(group, name) {
+  const sheet = tabFor_(group === 'faculty' ? 'faculty' : 'student');
+  const twin = sheet && findByName_(sheet, String(name || '').slice(0, 100));
+  if (!twin) return { ok: true, found: false };
+  const email = twin.headers.indexOf('Email');
+  return { ok: true, found: true, hasEmail: email >= 0 && !!String(twin.values[email]).trim(), repliedOn: repliedOn_(twin.values[0]) };
+}
+
+// Adds an email to an earlier reply. Never replaces an email that is already saved.
+function addEmail_(d) {
+  try {
+    const email = String(d.email || '').trim().toLowerCase().slice(0, 120);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail_('Please type a valid email for your QR ticket.');
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(15000)) fail_('The SSC records are busy. Please try again in a moment.');
+    try {
+      const sheet = tabFor_(d.group === 'faculty' ? 'faculty' : 'student');
+      const columns = referenceColumns_(sheet);
+      const twin = findByName_(sheet, String(d.name || '').slice(0, 100));
+      if (!twin) fail_('We could not find your earlier reply. Please fill in the form instead.');
+      if (String(twin.values[columns.Email - 1]).trim()) return { ok: true, already: true };
+      sheet.getRange(twin.row, columns.Email).setValue(email);
+      SpreadsheetApp.flush();
+      return { ok: true, added: true };
+    } finally {
+      lock.releaseLock();
+    }
+  } catch (err) {
+    return { ok: false, message: err.userMessage || 'Could not save your email. Please try again.' };
+  }
 }
 
 function saveScreenshot_(proof, name) {

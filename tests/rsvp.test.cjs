@@ -65,7 +65,7 @@ function backend({ legacy = false } = {}) {
   vm.createContext(context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/QR.gs'), 'utf8'), context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/Code.gs'), 'utf8'), context);
-  return { send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
+  return { lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
 
@@ -250,4 +250,44 @@ test('QR.gs makes a GIF picture without a browser', () => {
   const url = q.createDataURL(8, 4);
   assert.match(url, /^data:image\/gif;base64,R0lGOD/);
   assert.ok(q.getModuleCount() >= 21);
+});
+
+test('a second reply from the same person updates the first row instead of adding one', () => {
+  const b = backend(), sh = b.students, h = () => sh.rows[4];
+  const first = b.save(reply('student', { fullName: 'Sabedola, Ailah Marie M.', paymentMethod: 'Cash' }));
+  const again = b.save(reply('student', { fullName: 'ailah marie sabedola', section: 'BSTM 1B', paymentMethod: 'GCash', email: 'ailah@x.com', proof: { mime: 'image/png', base64: 'dGVzdA==' } }));
+  assert.equal(again, first);
+  assert.equal(sh.rows.length, 6);
+  assert.equal(sh.rows[5][h().indexOf('Email')], 'ailah@x.com');
+  assert.match(sh.rows[5][h().indexOf('Payment')], /GCash · check screenshot/);
+  assert.match(sh.rows[5][h().indexOf('Screenshot')], /View/);
+  sh.rows[5][h().indexOf('Payment')] = 'Paid ✓';
+  b.save(reply('student', { fullName: 'Ailah Marie Sabedola', paymentMethod: 'Cash', email: 'other@x.com' }));
+  assert.equal(sh.rows.length, 6);
+  assert.equal(sh.rows[5][h().indexOf('Payment')], 'Paid ✓', 'officer verification is kept');
+  assert.equal(sh.rows[5][h().indexOf('Email')], 'ailah@x.com', 'saved email is never replaced');
+  assert.equal(b.uploads, 1);
+  b.save(reply('student', { fullName: 'Ailah Marie Cruz' }));
+  assert.equal(sh.rows.length, 7, 'different people still get their own row');
+  assert.equal(b.locked, false);
+});
+test('earlier repliers can look themselves up and add an email once', () => {
+  const b = backend(), sh = b.students;
+  assert.equal(b.lookup('student', 'Nobody Here').found, false);
+  b.save(reply('student', { fullName: 'Daniella Balino' }));
+  sh.rows[5][sh.rows[4].indexOf('Payment')] = 'Paid ✓';
+  const l = b.lookup('student', 'balino daniella');
+  assert.equal(l.found, true); assert.equal(l.hasEmail, false);
+  assert.equal('reference' in l || 'paid' in l, false, 'lookup reveals nothing else');
+  assert.equal(b.lookup('faculty', 'Daniella Balino').found, false);
+  assert.equal(b.addEmail({ group: 'student', name: 'Daniella Balino', email: 'bad' }).ok, false);
+  assert.equal(b.addEmail({ group: 'student', name: 'Someone Else', email: 'a@x.com' }).ok, false);
+  assert.equal(b.addEmail({ group: 'student', name: 'Daniella Balino', email: 'Dani@X.com' }).added, true);
+  assert.equal(sh.rows[5][sh.rows[4].indexOf('Email')], 'dani@x.com');
+  assert.equal(b.addEmail({ group: 'student', name: 'Daniella Balino', email: 'thief@x.com' }).already, true);
+  assert.equal(sh.rows[5][sh.rows[4].indexOf('Email')], 'dani@x.com');
+  assert.equal(b.lookup('student', 'Daniella Balino').hasEmail, true);
+  assert.equal(b.send(), 1);
+  assert.equal(b.mails[0].to, 'dani@x.com');
+  assert.equal(b.locked, false);
 });
