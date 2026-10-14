@@ -139,16 +139,86 @@
     g.fillText(ref.slice(0, 21), qx + qs / 2, qy + qs + 104); g.fillText(ref.slice(21), qx + qs / 2, qy + qs + 130);
     g.textAlign = 'left';
 
+    await deliver(c, 'Panaghimamat-2026-ticket-' + fileSafe(d.name) + '.png', 'Panaghimamat 2026 ticket');
+  };
+
+  const fileSafe = (t) => String(t || 'guest').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '');
+  // Phones: share sheet lets people save to Photos. Elsewhere: a normal download.
+  async function deliver(c, name, title) {
     const blob = await new Promise((ok) => c.toBlob(ok, 'image/png'));
-    const name = 'Panaghimamat-2026-ticket-' + String(d.name || 'guest').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') + '.png';
     const file = blob && new File([blob], name, { type: 'image/png' });
-    // Phones: share sheet lets people save to Photos. Elsewhere: a normal download.
     if (file && navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
-      try { await navigator.share({ files: [file], title: 'Panaghimamat 2026 ticket' }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+      try { await navigator.share({ files: [file], title }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
     }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = name;
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  /* "With regrets" keepsake card for guests who can't attend: portrait, phone-sized. */
+  window.saveRegretsImage = async function saveRegretsImage(d) {
+    if (!d) return;
+    try { await Promise.all([document.fonts.load('64px "Pinyon Script"'), document.fonts.load('600 40px "Cormorant Garamond"'), document.fonts.load('italic 30px "Cormorant Garamond"'), document.fonts.load('600 20px "EB Garamond"')]); } catch {}
+    const W = 1080, H = 1350, M = 64;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    const serif = '"Cormorant Garamond", "EB Garamond", Georgia, serif', body = '"EB Garamond", Georgia, serif', script = '"Pinyon Script", "Cormorant Garamond", cursive';
+    const [paper, sti, ssc, seal] = await Promise.all([loadImg('assets/paper.jpg'), loadImg('assets/sti-logo.png'), loadImg('assets/ssc-logo.png'), loadImg('assets/wax-seal.png')]);
+    const cx = W / 2;
+
+    // velvet backdrop + paper card
+    const bg = g.createRadialGradient(cx, H * .4, 80, cx, H * .45, H * .8);
+    bg.addColorStop(0, '#5c121c'); bg.addColorStop(1, '#22050a');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.save();
+    g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 40; g.shadowOffsetY = 14;
+    g.beginPath(); g.roundRect(M, M, W - 2 * M, H - 2 * M, 10); g.fillStyle = '#ecdfc4'; g.fill();
+    g.restore();
+    g.save();
+    g.beginPath(); g.roundRect(M, M, W - 2 * M, H - 2 * M, 10); g.clip();
+    if (paper) g.drawImage(paper, 0, 0, W, H);
+    const vg = g.createRadialGradient(cx, H / 2, H * .25, cx, H / 2, H * .75);
+    vg.addColorStop(0, 'rgba(110,72,30,0)'); vg.addColorStop(1, 'rgba(110,72,30,.32)');
+    g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    g.restore();
+    g.strokeStyle = 'rgba(155,110,50,.6)'; g.lineWidth = 2; g.strokeRect(M + 26, M + 26, W - 2 * M - 52, H - 2 * M - 52);
+    g.strokeStyle = 'rgba(155,110,50,.35)'; g.lineWidth = 1; g.strokeRect(M + 34, M + 34, W - 2 * M - 68, H - 2 * M - 68);
+
+    const center = (t, y, font, color, spacing = 0) => { g.font = font; g.fillStyle = color; g.textAlign = 'center'; g.letterSpacing = spacing + 'px'; g.fillText(t, cx, y); g.letterSpacing = '0px'; };
+    const fit = (t, font, max) => { g.font = font; let s = String(t || ''); while (g.measureText(s).width > max && s.length > 4) s = s.slice(0, -2) + '…'; return s; };
+    const rule = (y) => {
+      g.strokeStyle = 'rgba(155,110,50,.6)'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(cx - 190, y); g.lineTo(cx - 24, y); g.moveTo(cx + 24, y); g.lineTo(cx + 190, y); g.stroke();
+      center('✦', y + 9, `22px ${serif}`, '#9b7536');
+    };
+
+    if (sti) g.drawImage(sti, cx - 86, 150, 72, 72);
+    if (ssc) g.drawImage(ssc, cx + 14, 150, 72, 72);
+    center('STI COLLEGE VALENCIA · SUPREME STUDENT COUNCIL', 268, `600 19px ${body}`, '#86705e', 4);
+    center('Panaghimamat 2026', 360, `500 84px ${serif}`, '#2e1913');
+    center('Teachers’ Day Celebration', 410, `italic 34px ${serif}`, '#5e4437');
+    rule(462);
+
+    center('With fond regrets', 590, `76px ${script}`, '#5c121c');
+    center(fit(d.name, `600 58px ${serif}`, W - 2 * M - 120), 688, `600 58px ${serif}`, '#2e1913');
+    center(d.group === 'faculty' ? 'Faculty' : (d.section || 'Student'), 736, `italic 32px ${serif}`, '#5e4437');
+
+    const lines = ['Thank you for letting us know.', 'You will be missed on Friday, October 23,', d.group === 'faculty' ? 'as we celebrate you and all our teachers.' : 'as we celebrate our beloved teachers.'];
+    lines.forEach((t, i) => center(t, 826 + i * 46, `32px ${serif}`, '#3d2a20'));
+    rule(990);
+
+    const details = [['Reply', 'Unable to attend'], ['Sent', d.repliedOn || new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })]];
+    details.forEach(([k, v], i) => {
+      const y = 1052 + i * 46;
+      g.textAlign = 'right'; g.font = `600 17px ${body}`; g.fillStyle = '#86705e'; g.letterSpacing = '4px'; g.fillText(k.toUpperCase(), cx - 18, y); g.letterSpacing = '0px';
+      g.textAlign = 'left'; g.font = `600 28px ${serif}`; g.fillStyle = '#2e1913'; g.fillText(v, cx + 18, y);
+    });
+    g.textAlign = 'center'; g.font = '17px ui-monospace, Menlo, Consolas, monospace'; g.fillStyle = '#86705e';
+    if (d.reference) g.fillText(d.reference, cx, 1146);
+    if (seal) g.drawImage(seal, cx - 44, 1160, 88, 88);
+    g.textAlign = 'left';
+
+    await deliver(c, 'Panaghimamat-2026-reply-' + fileSafe(d.name) + '.png', 'Panaghimamat 2026 reply');
   };
 })();

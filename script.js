@@ -522,13 +522,16 @@
     } else {
       slot.hidden = true;
       $('receiptCard').hidden = false;
-      $('printReceipt').textContent = 'Save / print';
+      $('printReceipt').textContent = attending ? 'Save / print' : 'Save (image)';
     }
+    lastReply = { name: d.fullName, section: d.section, group: FACULTY ? 'faculty' : 'student', reference: d.receiptId, attending };
     showStep(3);
   }
   // Attending guests save their ticket as an image; a declined reply prints its acknowledgment.
+  let lastReply = null;
   $('printReceipt').addEventListener('click', () => {
     if (!$('ticketSlot').hidden && window.saveTicketImage) window.saveTicketImage();
+    else if (lastReply && !lastReply.attending && window.saveRegretsImage) window.saveRegretsImage(lastReply);
     else window.print();
   });
   applyStep(0);
