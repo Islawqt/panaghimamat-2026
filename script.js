@@ -166,6 +166,74 @@
     }
   }
 
+  /* The reply card peeks out of the envelope and waits for the guest:
+   * drag it up (it follows the finger, with a little tilt) or just tap it. */
+  const SLIP_PEEK = -58;
+  function waitForPull() {
+    return new Promise((resolve) => {
+      const hint = $('envelopeHint'), hintHTML = hint.innerHTML;
+      hint.innerHTML = '<span class="hint-dot" aria-hidden="true"></span>Pull the card up ↑ or tap it';
+      hint.hidden = false;
+      replySlip.classList.add('is-ready');
+      envelope.classList.add('is-pulling');
+      Object.assign(replySlip, { tabIndex: 0 });
+      replySlip.setAttribute('role', 'button');
+      replySlip.setAttribute('aria-hidden', 'false');
+      replySlip.setAttribute('aria-label', 'Pull out the Contribution and RSVP card');
+      replySlip.focus({ preventScroll: true });
+      let start = null, dx = 0, dy = 0, done = false;
+      const place = () => {
+        // Upward follows the finger; downward resists. A small sideways tilt makes it feel like paper.
+        const y = dy < 0 ? dy : dy * 0.25;
+        replySlip.style.transform = `translate(${dx * 0.12}px, calc(${SLIP_PEEK}% + ${y}px)) rotate(${dx * 0.03}deg)`;
+      };
+      const finish = async () => {
+        if (done) return;
+        done = true;
+        envelope.removeEventListener('pointerdown', down);
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+        replySlip.removeEventListener('keydown', key);
+        replySlip.classList.remove('is-ready', 'is-dragging');
+        envelope.classList.remove('is-pulling');
+        hint.hidden = true;
+        hint.innerHTML = hintHTML;
+        try { navigator.vibrate && navigator.vibrate(18); } catch {}
+        const from = replySlip.style.transform || `translateY(${SLIP_PEEK}%)`;
+        await anim(replySlip, [{ transform: from, opacity: 1 }, { transform: `translate(${dx * 0.3}px, -260%) rotate(${dx * 0.05 - 4}deg)`, opacity: 0 }], { duration: 560, easing: 'cubic-bezier(.45,0,.7,.2)' });
+        resolve();
+      };
+      const down = (e) => {
+        if (done || (e.button != null && e.button !== 0)) return;
+        start = { x: e.clientX, y: e.clientY, t: performance.now() };
+        dx = dy = 0;
+        replySlip.classList.add('is-dragging');
+      };
+      const move = (e) => {
+        if (!start || done) return;
+        dx = e.clientX - start.x; dy = e.clientY - start.y;
+        place();
+      };
+      const up = (e) => {
+        if (!start || done) return;
+        const moved = Math.hypot(dx, dy), speed = -dy / Math.max(1, performance.now() - start.t);
+        start = null;
+        replySlip.classList.remove('is-dragging');
+        if (moved < 8 || dy < -70 || speed > 0.6) return finish(); // a tap, a good pull, or a quick flick
+        dx = dy = 0;
+        anim(replySlip, [{ transform: replySlip.style.transform }, { transform: `translateY(${SLIP_PEEK}%)` }], { duration: 420, easing: 'cubic-bezier(.34,1.56,.64,1)' })
+          .then(() => { if (!done) replySlip.style.transform = `translateY(${SLIP_PEEK}%)`; });
+      };
+      const key = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } };
+      envelope.addEventListener('pointerdown', down);
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
+      replySlip.addEventListener('keydown', key);
+    });
+  }
+
   async function closeEnvelope() {
     if (busy || layer.hidden) return;
     busy = true;
@@ -178,14 +246,15 @@
       $('envelopeHint').hidden = true;
       // Keep the flap open: the reply slip emerges only after the letter is tucked in.
       replySlip.hidden = false;
-      await anim(replySlip, [{ transform: 'translateY(0)' }, { transform: 'translateY(-80%)' }], { duration: 780, easing: EASE_OUT });
-      await wait(420);
+      await anim(replySlip, [{ transform: 'translateY(0)' }, { transform: `translateY(${SLIP_PEEK}%)` }], { duration: 780, easing: EASE_OUT });
+      await waitForPull(); // the guest pulls (or taps) the reply card out themselves
       await showStep(1);
     } finally {
       // Reset the envelope off-screen so Back / Read again always works.
       layer.hidden = true;
       layer.style.cssText = ''; card.style.cssText = ''; content.style.cssText = '';
       replySlip.hidden = true; replySlip.style.cssText = '';
+      replySlip.removeAttribute('role'); replySlip.removeAttribute('tabindex'); replySlip.setAttribute('aria-hidden', 'true');
       letter.style.cssText = ''; flap.style.cssText = ''; seal.style.cssText = '';
       envelope.classList.remove('is-open', 'flap-up');
       envelope.classList.add('is-read');

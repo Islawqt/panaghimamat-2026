@@ -306,6 +306,13 @@ textarea:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgb
 .env-reply:before{content:'';position:absolute;inset:9px;border:1px solid var(--rule)}
 .env-reply strong{font:600 clamp(1.2rem,5.3vw,1.7rem)/1.15 var(--serif);color:var(--oxblood)}
 .env-reply>span:last-child{font:italic .9rem var(--serif);color:var(--ink-soft)}
+.envelope.is-pulling{touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.env-reply.is-ready{cursor:grab;outline:none;box-shadow:0 0 0 0 rgba(226,199,143,0);animation:slipBob 1.6s ease-in-out infinite,slipGlow 1.6s ease-in-out infinite}
+.env-reply.is-ready:focus-visible{box-shadow:0 0 0 3px var(--gold)}
+.env-reply.is-dragging{cursor:grabbing;animation:none}
+@keyframes slipBob{0%,100%{translate:0 0}50%{translate:0 -9px}}
+@keyframes slipGlow{0%,100%{filter:drop-shadow(0 0 0 rgba(226,199,143,0))}50%{filter:drop-shadow(0 -6px 14px rgba(226,199,143,.55))}}
+@media (prefers-reduced-motion:reduce){.env-reply.is-ready{animation:none}}
 
 /* ---------- Ticket ---------- */
 .ticket{display:grid;grid-template-columns:1fr;margin:0 0 18px;overflow:hidden}
