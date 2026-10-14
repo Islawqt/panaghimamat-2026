@@ -20,4 +20,5 @@
     say('We could not load your ticket. Please check your connection and refresh.');
   }
   $('printTicket').addEventListener('click', () => window.print());
+  $('saveTicket').addEventListener('click', () => window.saveTicketImage());
 })();

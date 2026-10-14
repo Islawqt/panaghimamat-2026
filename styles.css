@@ -315,4 +315,16 @@ textarea:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgb
   .tk-note{grid-column:1/-1}
 }
 .ticket-page .lead{margin-bottom:14px}
-@media print{#ticketSlot,#ticketSlot *,.ticket-page .ticket{visibility:visible}.ticket{box-shadow:none}}
+/* Printing an attending guest's ticket: only the ticket, landscape, with its colors */
+@media print{
+  @page{size:landscape;margin:12mm}
+  body:has(#ticketSlot:not([hidden]) .ticket) *{visibility:hidden}
+  body:has(#ticketSlot:not([hidden]) .ticket) .ticket,body:has(#ticketSlot:not([hidden]) .ticket) .ticket *{visibility:visible}
+  body:has(#ticketSlot:not([hidden]) .ticket) .ticket{position:fixed;left:50%;top:0;transform:translateX(-50%);width:170mm;display:grid;grid-template-columns:1fr 62mm;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;border:1px solid #9b7536;background:#ecdfc4}
+  body:has(#ticketSlot:not([hidden]) .ticket) .ticket .tk-main{border-bottom:0;border-right:2px dashed #9b7536}
+  body:has(#ticketSlot:not([hidden]) .ticket) .ticket .tk-main:before,body:has(#ticketSlot:not([hidden]) .ticket) .ticket .tk-main:after{display:none}
+  body:has(#ticketSlot:not([hidden]) .ticket) .tk-note{grid-column:1/-1}
+  body:has(#ticketSlot:not([hidden]) .ticket) .paper:after{filter:none;box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ticket-page .velvet,.ticket-page .masthead,.ticket-page .footer-mark,.ticket-page .credit,.ticket-page .actions,.ticket-page .page-title,.ticket-page .lead{display:none}
+}

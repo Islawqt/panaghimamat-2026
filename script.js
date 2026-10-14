@@ -387,14 +387,21 @@
       window.renderTicket(slot, { name: d.fullName, section: d.section, group: FACULTY ? 'faculty' : 'student', reference: d.receiptId, paid: false, email: d.email, preview: !d.saved });
       slot.hidden = false;
       $('receiptCard').hidden = true;
+      $('printReceipt').textContent = 'Save ticket (image)';
+      $('printReceipt').disabled = !d.saved;
       $('replyBody').textContent = !d.saved ? 'This is a test preview. Nothing was saved and no payment was recorded.'
         : 'Here is your ticket. Keep your reference until your QR arrives by email.';
     } else {
       slot.hidden = true;
       $('receiptCard').hidden = false;
+      $('printReceipt').textContent = 'Save / print';
     }
     showStep(3);
   }
-  $('printReceipt').addEventListener('click', () => window.print());
+  // Attending guests save their ticket as an image; a declined reply prints its acknowledgment.
+  $('printReceipt').addEventListener('click', () => {
+    if (!$('ticketSlot').hidden && window.saveTicketImage) window.saveTicketImage();
+    else window.print();
+  });
   applyStep(0);
 })();
