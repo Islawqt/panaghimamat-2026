@@ -241,8 +241,7 @@
     busy = true;
     try {
       await foldPaper();
-      // The read letter goes back in looking used: creased, a little worn, tucked in at a slant behind the reply card.
-      letter.classList.add('is-used');
+      // The read letter goes back in, tucked at a slight slant behind the reply card.
       letter.style.opacity = '';
       layer.hidden = true;
       await anim(letter, [{ transform: `${OUT} rotate(0deg)` }, { transform: 'translateY(-74%) rotate(-3deg)' }], { duration: 620, easing: EASE_IN_OUT });
