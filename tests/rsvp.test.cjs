@@ -262,7 +262,8 @@ test('a second reply from the same person updates the first row instead of addin
   assert.match(sh.rows[5][h().indexOf('Payment')], /GCash · check screenshot/);
   assert.match(sh.rows[5][h().indexOf('Screenshot')], /View/);
   sh.rows[5][h().indexOf('Payment')] = 'Paid ✓';
-  b.save(reply('student', { fullName: 'Ailah Marie Sabedola', paymentMethod: 'Cash', email: 'other@x.com' }));
+  assert.throws(() => b.save(reply('student', { fullName: 'Ailah Marie Sabedola', paymentMethod: 'Cash', email: 'other@x.com' })), /different email/);
+  b.save(reply('student', { fullName: 'Ailah Marie Sabedola', paymentMethod: 'Cash', email: 'ailah@x.com' }));
   assert.equal(sh.rows.length, 6);
   assert.equal(sh.rows[5][h().indexOf('Payment')], 'Paid ✓', 'officer verification is kept');
   assert.equal(sh.rows[5][h().indexOf('Email')], 'ailah@x.com', 'saved email is never replaced');
@@ -340,5 +341,19 @@ test('someone who declined can switch to attending once; reason is cleared and t
   assert.equal(sh.rows[5][col('Attending')], 'Yes');
   sh.rows[5][col('Attending')] = 'No'; // officer sets it back by hand
   assert.throws(() => b.save(reply('student', { fullName: 'Lea Nicole Viador', email: 'lea@x.com', paymentMethod: 'GCash', proof: { mime: 'image/png', base64: 'dGVzdA==' } })), /one chance/);
+  assert.equal(b.locked, false);
+});
+
+test('guards: same email merges a misspelled name; no cancelling an attending reply; email typos refused', () => {
+  const b = backend(), sh = b.students;
+  const first = b.save(reply('student', { fullName: 'Khyme Caliradelle Bongabong', email: 'khyme@x.com' }));
+  assert.equal(b.save(reply('student', { fullName: 'Khyme Clairadelle Bongabong', email: 'khyme@x.com', paymentMethod: 'GCash', proof: { mime: 'image/png', base64: 'dGVzdA==' } })), first);
+  assert.equal(sh.rows.length, 6);
+  assert.throws(() => b.save(reply('student', { fullName: 'Khyme Caliradelle Bongabong', attendance: 'Not attending', paymentMethod: '', reason: 'prank' })), /To cancel/);
+  assert.equal(sh.rows[5][sh.rows[4].indexOf('Attending')], 'Yes');
+  assert.throws(() => b.save(reply('student', { fullName: 'New Person', email: 'np@gmail.con' })), /spelling/);
+  assert.throws(() => b.save(reply('student', { fullName: 'New Person', email: 'np@gmial.com' })), /spelling/);
+  assert.equal(b.addEmail({ group: 'student', name: 'Khyme Caliradelle Bongabong', email: 'k@gmail.co' }).ok, false);
+  assert.equal(sh.rows.length, 6);
   assert.equal(b.locked, false);
 });

@@ -433,6 +433,7 @@
     const oops = (m) => { $('dupErr').textContent = m; $('dupErr').hidden = false; };
     $('dupErr').hidden = true;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('dupEmail').focus(); return oops('Please type a valid email, e.g. name@gmail.com.'); }
+    if (emailTypo(email)) { $('dupEmail').focus(); return oops('Please check the spelling of your email (for example, gmail.com).'); }
     $('dupSave').disabled = true; $('dupSave').textContent = 'Saving…';
     try {
       const d = await post({ action: 'addEmail', group: FACULTY ? 'faculty' : 'student', name: cleanName(), email });
@@ -451,6 +452,13 @@
   }
   $('dupSave').addEventListener('click', saveDupEmail);
   $('dupEmail').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveDupEmail(); } });
+
+  // Same rules as the Google script: catch gmail.con, gmial.com and similar before sending.
+  function emailTypo(email) {
+    const domain = String(email).split('@')[1] || '';
+    return /\.(con|cim|cmo|comm|vom|xom)$/.test(domain) || /^(gmial|gmai|gamil|gmal|gnail|gmaill|yaho|yahooo|hotmial|outlok)\./.test(domain) ||
+      (/^(gmail|hotmail|outlook|icloud)\./.test(domain) && domain !== domain.split('.')[0] + '.com') || (/^yahoo\./.test(domain) && !/^yahoo\.com(\.ph)?$/.test(domain));
+  }
 
   /* Students type their year & section */
   const cleanSection = () => ($('section') ? $('section').value.trim().replace(/\s+/g, ' ').toUpperCase() : '');
@@ -533,6 +541,7 @@
     if (!attendance) return error('Please tell us if you can attend.');
     if (attendance === 'Not attending' && reason.length < 3) return error('Please give a short reason for not attending.');
     if (attendance === 'Attending' && ticketsReady && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('email').focus(); return error('Please type your email so we can send your QR ticket.'); }
+    if (attendance === 'Attending' && ticketsReady && emailTypo(email)) { $('email').focus(); return error('Please check the spelling of your email (for example, gmail.com).'); }
     if (attendance === 'Attending' && !method) return error('Please choose how you will pay.');
     if (!$('consent').checked) return error('Please tick the agreement box to continue.');
     const isOnline = method === 'GCash' || method === 'Bank Transfer';

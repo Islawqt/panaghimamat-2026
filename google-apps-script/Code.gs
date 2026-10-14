@@ -103,7 +103,7 @@ const SITE = 'https://islawqt.github.io/panaghimamat-2026/';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'ticket') return json_(ticket_(p.ref));
-  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe-status-mind', message: 'Panaghimamat RSVP is running.' });
+  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe-status-mind-guard', message: 'Panaghimamat RSVP is running.' });
 }
 
 /* ---------- Tickets ----------
@@ -194,6 +194,7 @@ function save_(d) {
   const email = text(d.email, 120).toLowerCase();
   // Required on the new page; optional here so replies from older cached pages still save.
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail_('Please type a valid email for your QR ticket.');
+  if (email && emailTypo_(email)) fail_('Please check the spelling of your email (for example, gmail.com).');
 
   let payment = 'Not attending';
   const online = attending && (method === 'GCash' || method === 'Bank Transfer');
@@ -271,7 +272,8 @@ function saveLocked_(d) {
     return reference;
   }
   // Same person replying again: update their first reply instead of adding a second row.
-  const twin = findByName_(sheet, name);
+  // Same person = same name (any order/case) or same email in this tab, e.g. "Khyme Caliradelle" vs "Khyme Clairadelle".
+  const twin = findByName_(sheet, name) || findByEmail_(sheet, email);
   if (twin) return mergeReply_(sheet, columns, twin, d, safe);
   const screenshot = online ? '=HYPERLINK("' + saveScreenshot_(proof, name) + '","View")' : '';
   const receiptId = 'PH26-' + Utilities.getUuid().replace(/-/g, '').toUpperCase();
@@ -312,6 +314,23 @@ function findByName_(sheet, name) {
   const i = rows.findIndex((r) => nameKey_(r[nameCol]) === key);
   return i < 0 ? null : { row: 6 + i, headers, values: rows[i] };
 }
+function findByEmail_(sheet, email) {
+  if (!email || sheet.getLastRow() < 6) return null;
+  const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const e = headers.indexOf('Email');
+  if (e < 0) return null;
+  const rows = sheet.getRange(6, 1, sheet.getLastRow() - 5, headers.length).getValues();
+  const i = rows.findIndex((r) => String(r[e]).trim().toLowerCase() === email);
+  return i < 0 ? null : { row: 6 + i, headers, values: rows[i] };
+}
+// Common email typos that would make a ticket bounce (gmail.con, gmial.com, …).
+function emailTypo_(email) {
+  const domain = String(email).split('@')[1] || '';
+  return /\.(con|cim|cmo|comm|vom|xom)$/.test(domain) ||
+    /^(gmial|gmai|gamil|gmal|gnail|gmaill|yaho|yahooo|hotmial|outlok)\./.test(domain) ||
+    (/^(gmail|hotmail|outlook|icloud)\./.test(domain) && domain !== domain.split('.')[0] + '.com') ||
+    (/^yahoo\./.test(domain) && !/^yahoo\.com(\.ph)?$/.test(domain));
+}
 function repliedOn_(value) {
   return value instanceof Date ? Utilities.formatDate(value, 'Asia/Manila', 'MMM d, h:mm a') : String(value || '');
 }
@@ -328,6 +347,10 @@ function mergeReply_(sheet, columns, twin, d, safe) {
   const usedChance = !!String(twin.values[columns['Changed mind'] - 1] || '').trim();
   if (usedChance && !attending) fail_('You already used your one chance to change your reply. Please message an SSC officer.');
   const changedMind = wasDeclined && attending;
+  // Guard other people's replies: a saved email must match, and an attending reply can't be cancelled from the site.
+  const savedEmail = String(twin.values[columns.Email - 1] || '').trim().toLowerCase();
+  if (savedEmail && email && savedEmail !== email) fail_('A reply with this name already uses a different email. If this is you, use that same email or message an SSC officer.');
+  if (!wasDeclined && !attending) fail_('You already replied that you are attending. To cancel, please message an SSC officer.');
   if (changedMind && usedChance) fail_('You already used your one chance to change your reply. Please message an SSC officer.');
   if (email && !String(twin.values[columns.Email - 1]).trim()) sheet.getRange(twin.row, columns.Email).setValue(safe(email));
   if (!paid) {
@@ -366,6 +389,7 @@ function addEmail_(d) {
   try {
     const email = String(d.email || '').trim().toLowerCase().slice(0, 120);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail_('Please type a valid email for your QR ticket.');
+    if (emailTypo_(email)) fail_('Please check the spelling of your email (for example, gmail.com).');
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(15000)) fail_('The SSC records are busy. Please try again in a moment.');
     try {
