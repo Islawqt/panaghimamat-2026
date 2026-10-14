@@ -319,3 +319,26 @@ test('status check by email shows progress without full names and resends only t
   assert.equal(s.replies[0].name, 'Ailah S.'); assert.equal(s.replies[0].stage, 'checking'); assert.equal(s.replies[0].group, 'faculty');
   assert.equal(b.locked, false);
 });
+
+test('someone who declined can switch to attending once; reason is cleared and the switch is recorded', () => {
+  const b = backend(), sh = b.students, h = () => sh.rows[4], col = (t) => h().indexOf(t);
+  const ref = b.save(reply('student', { fullName: 'Lea Nicole Viador', attendance: 'Not attending', paymentMethod: '', reason: 'No budget yet' }));
+  let l = b.lookup('student', 'Lea Nicole Viador');
+  assert.equal(l.declined, true); assert.equal(l.changedMind, false);
+  assert.equal(b.addEmail({ group: 'student', name: 'Lea Nicole Viador', email: 'lea@x.com' }).ok, false, 'declined replies change their mind first');
+  assert.equal(b.save(reply('student', { fullName: 'Lea Nicole Viador', email: 'lea@x.com', paymentMethod: 'Cash' })), ref);
+  assert.equal(sh.rows.length, 6);
+  assert.equal(sh.rows[5][col('Attending')], 'Yes');
+  assert.equal(sh.rows[5][col('Reason (if not attending)')], '');
+  assert.equal(sh.rows[5][col('Contribution')], 550);
+  assert.equal(sh.rows[5][col('Email')], 'lea@x.com');
+  assert.match(sh.rows[5][col('Ticket')], /ticket/);
+  assert.match(sh.rows[5][col('Changed mind')], /No → Yes/);
+  l = b.lookup('student', 'Lea Nicole Viador');
+  assert.equal(l.declined, false); assert.equal(l.changedMind, true);
+  assert.throws(() => b.save(reply('student', { fullName: 'Lea Nicole Viador', attendance: 'Not attending', paymentMethod: '', reason: 'Changed again' })), /one chance/);
+  assert.equal(sh.rows[5][col('Attending')], 'Yes');
+  sh.rows[5][col('Attending')] = 'No'; // officer sets it back by hand
+  assert.throws(() => b.save(reply('student', { fullName: 'Lea Nicole Viador', email: 'lea@x.com', paymentMethod: 'GCash', proof: { mime: 'image/png', base64: 'dGVzdA==' } })), /one chance/);
+  assert.equal(b.locked, false);
+});

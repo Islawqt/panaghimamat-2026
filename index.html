@@ -20,11 +20,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Pinyon+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261014-status">
+  <link rel="stylesheet" href="styles.css?v=20261014-mind">
   <script src="config.js" defer></script>
   <script src="assets/vendor/qrcode.js" defer></script>
   <script src="assets/ticket.js?v=20261014-mail" defer></script>
-  <script src="script.js?v=20261014-status" defer></script>
+  <script src="script.js?v=20261014-mind" defer></script>
 </head>
 <body data-audience="student">
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -174,6 +174,10 @@
               <button type="button" class="primary-btn" id="dupSave">Add my email</button>
             </div>
             <p class="dup-err" id="dupErr" role="alert" hidden></p>
+            <div class="dup-mind" id="mindRow" hidden>
+              <p class="dup-warn"><b>Note:</b> You only have <b>1 chance</b> to change your mind. Once you switch to attending, you can’t change it back.</p>
+              <button type="button" class="primary-btn" id="mindBtn">Change my mind</button>
+            </div>
             <button type="button" class="dup-notme" id="dupNotMe">Not you? Fill in the form instead</button>
           </div>
 

@@ -103,7 +103,7 @@ const SITE = 'https://islawqt.github.io/panaghimamat-2026/';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'ticket') return json_(ticket_(p.ref));
-  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe-status', message: 'Panaghimamat RSVP is running.' });
+  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe-status-mind', message: 'Panaghimamat RSVP is running.' });
 }
 
 /* ---------- Tickets ----------
@@ -161,7 +161,7 @@ function doPost(e) {
     if (data.action === 'resend') return json_(resendTicket_(data));
     saveInfo_ = {};
     const receiptId = save_(data);
-    return json_({ ok: true, receiptId, merged: !!saveInfo_.merged, repliedOn: saveInfo_.repliedOn || '' });
+    return json_({ ok: true, receiptId, merged: !!saveInfo_.merged, changedMind: !!saveInfo_.changedMind, repliedOn: saveInfo_.repliedOn || '' });
   } catch (err) {
     return json_({ ok: false, message: err.userMessage || 'Could not save your reply. Please try again.' });
   }
@@ -228,13 +228,13 @@ function hash_(value) {
 function referenceColumns_(sheet) {
   const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
   const columns = {};
-  ['Reference', 'Request ID', 'Reply fingerprint', 'Email', 'Ticket', 'Checked in', 'Ticket sent'].forEach((title) => {
+  ['Reference', 'Request ID', 'Reply fingerprint', 'Email', 'Ticket', 'Checked in', 'Ticket sent', 'Changed mind'].forEach((title) => {
     let column = headers.indexOf(title) + 1;
     if (!column) {
       column = headers.length + 1;
       if (column > sheet.getMaxColumns()) sheet.insertColumnsAfter(sheet.getMaxColumns(), 1);
       sheet.getRange(5, column).setValue(title).setBackground(WINE).setFontColor(CREAM).setFontWeight('bold');
-      sheet.setColumnWidth(column, title === 'Reference' ? 300 : title === 'Email' ? 230 : title === 'Ticket' ? 120 : title === 'Checked in' || title === 'Ticket sent' ? 200 : 180);
+      sheet.setColumnWidth(column, title === 'Reference' ? 300 : title === 'Email' ? 230 : title === 'Ticket' ? 120 : title === 'Checked in' || title === 'Ticket sent' || title === 'Changed mind' ? 200 : 180);
       headers.push(title);
     }
     columns[title] = column;
@@ -323,6 +323,12 @@ function mergeReply_(sheet, columns, twin, d, safe) {
   const cell = (t) => sheet.getRange(twin.row, at(t));
   const reference = twin.values[columns.Reference - 1];
   const paid = String(twin.values[at('Payment') - 1]).trim() === 'Paid ✓';
+  // Someone who declined may switch to attending once. After that the reply stays "attending".
+  const wasDeclined = twin.values[at('Attending') - 1] === 'No';
+  const usedChance = !!String(twin.values[columns['Changed mind'] - 1] || '').trim();
+  if (usedChance && !attending) fail_('You already used your one chance to change your reply. Please message an SSC officer.');
+  const changedMind = wasDeclined && attending;
+  if (changedMind && usedChance) fail_('You already used your one chance to change your reply. Please message an SSC officer.');
   if (email && !String(twin.values[columns.Email - 1]).trim()) sheet.getRange(twin.row, columns.Email).setValue(safe(email));
   if (!paid) {
     if (online) cell('Screenshot').setValue('=HYPERLINK("' + saveScreenshot_(proof, d.name) + '","View")');
@@ -333,10 +339,11 @@ function mergeReply_(sheet, columns, twin, d, safe) {
     cell('Reason (if not attending)').setValue(attending ? '' : safe(reason));
     sheet.getRange(twin.row, columns.Ticket).setValue(attending && reference ? ticketLink_(reference) : '');
   }
+  if (changedMind) sheet.getRange(twin.row, columns['Changed mind']).setValue(Utilities.formatDate(new Date(), 'Asia/Manila', 'MMM d, h:mm a') + ' · No → Yes');
   sheet.getRange(twin.row, columns['Request ID']).setValue(requestId);
   sheet.getRange(twin.row, columns['Reply fingerprint']).setValue(fingerprint);
   SpreadsheetApp.flush();
-  saveInfo_ = { merged: true, repliedOn: repliedOn_(twin.values[0]) };
+  saveInfo_ = { merged: true, changedMind, repliedOn: repliedOn_(twin.values[0]) };
   return reference;
 }
 
@@ -346,8 +353,12 @@ function lookup_(group, name) {
   const sheet = tabFor_(group === 'faculty' ? 'faculty' : 'student');
   const twin = sheet && findByName_(sheet, String(name || '').slice(0, 100));
   if (!twin) return { ok: true, found: false };
-  const email = twin.headers.indexOf('Email');
-  return { ok: true, found: true, hasEmail: email >= 0 && !!String(twin.values[email]).trim(), repliedOn: repliedOn_(twin.values[0]) };
+  const col = (t) => twin.headers.indexOf(t);
+  const has = (t) => col(t) >= 0 && !!String(twin.values[col(t)]).trim();
+  return {
+    ok: true, found: true, hasEmail: has('Email'), repliedOn: repliedOn_(twin.values[0]),
+    declined: twin.values[col('Attending')] === 'No', changedMind: has('Changed mind')
+  };
 }
 
 // Adds an email to an earlier reply. Never replaces an email that is already saved.
@@ -362,6 +373,7 @@ function addEmail_(d) {
       const columns = referenceColumns_(sheet);
       const twin = findByName_(sheet, String(d.name || '').slice(0, 100));
       if (!twin) fail_('We could not find your earlier reply. Please fill in the form instead.');
+      if (twin.values[twin.headers.indexOf('Attending')] === 'No') fail_('Your reply says you can’t attend. Use “Change my mind” on the invitation first.');
       if (String(twin.values[columns.Email - 1]).trim()) return { ok: true, already: true };
       sheet.getRange(twin.row, columns.Email).setValue(email);
       SpreadsheetApp.flush();

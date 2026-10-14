@@ -190,6 +190,9 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
 .dup-notme{display:block;margin:10px 0 0;padding:4px 0;background:none;border:0;font:italic .9rem var(--serif);color:var(--ink-soft);text-decoration:underline;cursor:pointer}
 #rsvpForm.returning>:not(:first-child):not(#dupNote):not(.honeypot){display:none!important}
 #rsvpForm.returning #dupNote{margin-bottom:0}
+.dup-mind{margin-top:10px}
+.dup-warn{margin:0 0 10px !important;padding:8px 10px;border-left:3px solid var(--oxblood);background:rgba(140,42,50,.08);font-size:.88rem}
+.dup-mind .primary-btn{width:100%;min-height:46px}
 .dup-email .primary-btn{min-height:46px;padding:10px 14px}
 .honeypot{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 

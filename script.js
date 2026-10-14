@@ -299,6 +299,19 @@
         if (cleanName().toLowerCase() !== lookedUp) return; // name changed while waiting
         if (!d.ok || !d.found) { returning(false); nameState('ok'); return; }
         const when = d.repliedOn ? ` on <b>${d.repliedOn.replace(/[<>&]/g, '')}</b>` : '';
+        $('mindRow').hidden = true;
+        if (d.declined) {
+          // Declined before: no email box. They may switch to attending once.
+          $('dupText').innerHTML = d.changedMind
+            ? `You replied${when} that you can’t attend, and you already used your one chance to change it. Please message an SSC officer.`
+            : `You replied${when} that you can’t attend. Changed your mind? You can still join us.`;
+          $('dupEmailRow').hidden = true;
+          $('mindRow').hidden = !!d.changedMind;
+          $('dupNotMe').hidden = false;
+          nameState('found');
+          returning(true);
+          return;
+        }
         $('dupText').innerHTML = d.hasEmail
           ? `You already replied${when}, and we have your email. Your QR ticket is sent there once your payment is verified. Check Spam too. <a href="status/">Check your status</a>. To change your reply, message an SSC officer.`
           : `You already replied${when}. No need to fill in the form again. Just add your email so we can send your QR ticket. It is shared only with the SSC.`;
@@ -320,8 +333,25 @@
   function returning(on) {
     $('dupNote').hidden = !on;
     $('rsvpForm').classList.toggle('returning', on);
-    if (!on) $('dupErr').hidden = true;
+    if (!on) { $('dupErr').hidden = true; changingMind(false); }
   }
+  // "Change my mind": reopen the form as attending only, so the switch is one way.
+  const declineChoice = () => document.querySelector('input[name="attendance"][value="Not attending"]').closest('label');
+  function changingMind(on) {
+    declineChoice().hidden = on;
+    $('rsvpForm').classList.toggle('changing', on);
+  }
+  $('mindBtn').addEventListener('click', () => {
+    $('rsvpForm').classList.remove('returning');
+    changingMind(true);
+    $('mindRow').hidden = true;
+    $('dupNotMe').hidden = true;
+    $('dupText').innerHTML = 'Glad you can make it! Fill in the form below to switch your reply to <b>attending</b>. Your earlier reason will be removed.';
+    const yes = document.querySelector('input[name="attendance"][value="Attending"]');
+    yes.checked = true;
+    yes.dispatchEvent(new Event('change', { bubbles: true }));
+    ($('section') || yes).focus();
+  });
   $('dupNotMe').addEventListener('click', () => { returning(false); $('section') ? $('section').focus() : $('rsvpForm').querySelector('input[name=attendance]').focus(); });
   $('fullName').addEventListener('blur', checkEarlierReply);
   $('fullName').addEventListener('input', () => {
@@ -451,7 +481,8 @@
       const data = await callApi(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }, 45000);
       if (data.ok === true) {
         showAcknowledgment({ ...payload, amount, receiptId: data.receiptId, saved: true });
-        if (data.merged) $('replyBody').textContent = `You already replied${data.repliedOn ? ' on ' + data.repliedOn : ''}, so we updated that reply instead of making a new one.`;
+        if (data.changedMind) $('replyBody').textContent = 'Welcome aboard! Your reply is now “attending”. We look forward to celebrating with you on October 23.';
+        else if (data.merged) $('replyBody').textContent = `You already replied${data.repliedOn ? ' on ' + data.repliedOn : ''}, so we updated that reply instead of making a new one.`;
       }
       else if (data.notReady) error('The SSC records are being updated. Please try again in a few minutes.');
       else error(data.message || 'Your reply could not be saved. Please try again.');
