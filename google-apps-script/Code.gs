@@ -103,7 +103,7 @@ const SITE = 'https://islawqt.github.io/panaghimamat-2026/';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'ticket') return json_(ticket_(p.ref));
-  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe', message: 'Panaghimamat RSVP is running.' });
+  return json_({ ok: true, version: '2026-10-14-tickets-checkin-mail-dedupe-status', message: 'Panaghimamat RSVP is running.' });
 }
 
 /* ---------- Tickets ----------
@@ -157,6 +157,8 @@ function doPost(e) {
     if (data.action === 'officer') return json_(officer_(data));
     if (data.action === 'lookup') return json_(lookup_(data.group, data.name));
     if (data.action === 'addEmail') return json_(addEmail_(data));
+    if (data.action === 'status') return json_(status_(data));
+    if (data.action === 'resend') return json_(resendTicket_(data));
     saveInfo_ = {};
     const receiptId = save_(data);
     return json_({ ok: true, receiptId, merged: !!saveInfo_.merged, repliedOn: saveInfo_.repliedOn || '' });
@@ -549,4 +551,86 @@ function ticketEmail_(g, email) {
     to: email, name: 'STI SSC Valencia', subject: 'Your Panaghimamat 2026 ticket',
     body, htmlBody: html, inlineImages: { qr }, attachments: [qr.copyBlob()]
   };
+}
+
+/* ---------- Status check (/status/) ----------
+ * A guest types the email from their reply and sees where it stands.
+ * Only a short name is shown, and a resent ticket always goes to that same email. */
+function repliesByEmail_(email) {
+  const found = [];
+  const book = book_();
+  [[book.getSheetByName(STUDENTS) || book.getSheetByName('Responses'), 'student'], [book.getSheetByName(FACULTY), 'faculty']].forEach(([sheet, group]) => {
+    if (!sheet || sheet.getLastRow() < 6) return;
+    const headers = sheet.getRange(5, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const e = headers.indexOf('Email');
+    if (e < 0) return;
+    sheet.getRange(6, 1, sheet.getLastRow() - 5, headers.length).getValues().forEach((r, i) => {
+      if (String(r[e]).trim().toLowerCase() === email) found.push({ sheet, group, headers, row: 6 + i, values: r });
+    });
+  });
+  return found;
+}
+function cleanEmail_(v) {
+  const email = String(v || '').trim().toLowerCase().slice(0, 120);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail_('Please type the email you used in your reply.');
+  return email;
+}
+function shortName_(name) {
+  const parts = String(name).replace(/,/g, ' ').trim().split(/\s+/);
+  if (String(name).includes(',')) return (parts[1] || '') + ' ' + (parts[0] || '').charAt(0) + '.'; // "Sabedola, Ailah" → "Ailah S."
+  return parts[0] + (parts.length > 1 ? ' ' + parts[parts.length - 1].charAt(0) + '.' : '');
+}
+
+function status_(d) {
+  try {
+    const email = cleanEmail_(d.email);
+    const replies = repliesByEmail_(email).map(({ group, headers, values }) => {
+      const get = (t) => (headers.indexOf(t) >= 0 ? values[headers.indexOf(t)] : '');
+      const payment = String(get('Payment')).trim();
+      const attending = get('Attending') === 'Yes';
+      const stage = !attending ? 'declined' : payment === 'Paid ✓' ? 'verified' : /screenshot/.test(payment) ? 'checking' : 'unpaid';
+      return {
+        group, name: shortName_(get('Name')), section: String(get('Year & Section') || ''),
+        repliedOn: repliedOn_(get('Date')), attending, stage,
+        method: /GCash/.test(payment) ? 'GCash' : /GoTyme/.test(payment) ? 'GoTyme' : attending ? 'Cash' : '',
+        ticketSent: /→/.test(String(get('Ticket sent'))) ? String(get('Ticket sent')).split('→')[0].trim() : '',
+        checkedIn: !!String(get('Checked in')).trim()
+      };
+    });
+    return { ok: true, found: replies.length > 0, replies };
+  } catch (err) {
+    return { ok: false, message: err.userMessage || 'Could not check your status. Please try again.' };
+  }
+}
+
+// Sends the ticket again, only to the email saved in the reply. Once per 30 minutes per email.
+function resendTicket_(d) {
+  try {
+    const email = cleanEmail_(d.email);
+    const cache = CacheService.getScriptCache();
+    if (cache.get('resend:' + email)) fail_('Your ticket was just sent. Please wait 30 minutes before asking again, and check Spam.');
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(15000)) fail_('Busy. Please try again in a moment.');
+    let sent = 0;
+    try {
+      repliesByEmail_(email).forEach(({ sheet, group, headers, row, values }) => {
+        const get = (t) => (headers.indexOf(t) >= 0 ? values[headers.indexOf(t)] : '');
+        if (String(get('Payment')).trim() !== 'Paid ✓' || get('Attending') !== 'Yes') return;
+        const ref = String(get('Reference')).trim();
+        if (!/^PH26-[A-F0-9]{32}$/.test(ref)) return;
+        if (MailApp.getRemainingDailyQuota() < 1) fail_('Too many emails today. Please try again tomorrow or ask an SSC officer.');
+        MailApp.sendEmail(ticketEmail_({ name: String(get('Name')).trim(), section: String(get('Year & Section') || '').trim(), group, reference: ref }, email));
+        if (headers.indexOf('Ticket sent') >= 0) sheet.getRange(row, headers.indexOf('Ticket sent') + 1).setValue(Utilities.formatDate(new Date(), 'Asia/Manila', 'MMM d, h:mm a') + ' → ' + email);
+        sent++;
+      });
+      SpreadsheetApp.flush();
+    } finally {
+      lock.releaseLock();
+    }
+    if (!sent) fail_('Your ticket is sent once your payment is verified.');
+    cache.put('resend:' + email, '1', 1800);
+    return { ok: true, sent };
+  } catch (err) {
+    return { ok: false, message: err.userMessage || 'Could not send your ticket. Please try again.' };
+  }
 }

@@ -173,6 +173,7 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
 .name-check-status{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:7px;font:italic .85rem var(--serif);color:var(--ink-soft);pointer-events:none;opacity:0;transition:opacity .25s}
 .name-check[data-state=checking] .name-check-status,.name-check[data-state=ok] .name-check-status,.name-check[data-state=found] .name-check-status{opacity:1}
 .name-check[data-state=checking] input{padding-right:118px}
+.name-check input{transition:padding .2s}
 .name-check[data-state=ok] input,.name-check[data-state=found] input{padding-right:40px}
 .name-spin,.name-ok{display:none}
 .name-check[data-state=checking] .name-spin{display:block;width:18px;height:18px;border-radius:50%;border:2px solid rgba(155,117,54,.25);border-top-color:var(--oxblood);animation:nameSpin .8s linear infinite}
@@ -336,6 +337,26 @@ textarea:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgb
   .tk-note{grid-column:1/-1}
 }
 .ticket-page .lead{margin-bottom:14px}
+/* Status page */
+.st-card{padding:22px 20px 18px}
+.st-who{margin:0 0 14px;font:500 1.15rem var(--serif);color:var(--ink-soft)}
+.st-who strong{font-weight:600;color:var(--oxblood);font-size:1.3rem}
+.st-steps{list-style:none;margin:0;padding:0}
+.st-step{position:relative;display:grid;grid-template-columns:30px 1fr;gap:12px;padding:0 0 16px}
+.st-step:not(:last-child):before{content:'';position:absolute;left:14px;top:30px;bottom:2px;width:1px;background:rgba(155,110,50,.45)}
+.st-dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:700 .95rem var(--body);border:1px solid #b9a079;background:rgba(255,251,240,.7);color:var(--ink-faint)}
+.st-step.done .st-dot{background:#2f5a2e;border-color:#2f5a2e;color:#f6ead6}
+.st-step.wait .st-dot{background:#fbe8c8;border-color:#c58a2b;color:#7a4a0c}
+.st-step.stop .st-dot{background:rgba(140,42,50,.12);border-color:var(--oxblood);color:var(--oxblood)}
+.st-body strong{display:block;font-weight:600;line-height:1.9}
+.st-step.next .st-body strong{color:var(--ink-faint)}
+.st-body p{margin:2px 0 0;font-size:.92rem;line-height:1.45;color:var(--ink-soft)}
+.st-body b{color:var(--oxblood);word-break:break-all}
+.st-resend{margin-top:4px}
+.st-note{margin:8px 0 0;font-size:.9rem;color:var(--ink-soft);text-align:center}
+.st-note:empty{display:none}
+.status-back{text-align:center;margin:4px 0 0}
+.status-back a{color:var(--gold-soft);font:italic 1rem var(--serif)}
 /* Printing an attending guest's ticket: only the ticket, landscape, with its colors */
 @media print{
   @page{size:landscape;margin:12mm}

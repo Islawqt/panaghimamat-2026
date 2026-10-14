@@ -65,7 +65,7 @@ function backend({ legacy = false } = {}) {
   vm.createContext(context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/QR.gs'), 'utf8'), context);
   vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/Code.gs'), 'utf8'), context);
-  return { lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
+  return { status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
 
@@ -289,5 +289,33 @@ test('earlier repliers can look themselves up and add an email once', () => {
   assert.equal(b.lookup('student', 'Daniella Balino').hasEmail, true);
   assert.equal(b.send(), 1);
   assert.equal(b.mails[0].to, 'dani@x.com');
+  assert.equal(b.locked, false);
+});
+
+test('status check by email shows progress without full names and resends only to that email', () => {
+  const b = backend(), sh = b.students;
+  assert.equal(b.status({ email: 'nope' }).ok, false);
+  assert.equal(b.status({ email: 'none@x.com' }).found, false);
+  b.save(reply('student', { fullName: 'Joseph Clarence Solatorio', email: 'jo@x.com', paymentMethod: 'Cash' }));
+  let s = b.status({ email: ' JO@x.com ' });
+  assert.equal(s.found, true);
+  assert.equal(s.replies[0].name, 'Joseph S.');
+  assert.equal(s.replies[0].stage, 'unpaid');
+  assert.equal(s.replies[0].method, 'Cash');
+  assert.equal('reference' in s.replies[0] || 'email' in s.replies[0], false);
+  assert.equal(b.resend({ email: 'jo@x.com' }).ok, false, 'no ticket before payment');
+  sh.rows[5][sh.rows[4].indexOf('Payment')] = 'Paid ✓';
+  b.send();
+  s = b.status({ email: 'jo@x.com' });
+  assert.equal(s.replies[0].stage, 'verified');
+  assert.match(s.replies[0].ticketSent, /Oct 23/);
+  const r = b.resend({ email: 'jo@x.com' });
+  assert.equal(r.ok, true); assert.equal(r.sent, 1);
+  assert.equal(b.mails.at(-1).to, 'jo@x.com');
+  assert.match(b.resend({ email: 'jo@x.com' }).message, /30 minutes/);
+  assert.equal(b.mails.length, 2);
+  b.save(reply('faculty', { fullName: 'Sabedola, Ailah Marie M.', email: 'ai@x.com', paymentMethod: 'GCash', proof: { mime: 'image/png', base64: 'dGVzdA==' } }));
+  s = b.status({ email: 'ai@x.com' });
+  assert.equal(s.replies[0].name, 'Ailah S.'); assert.equal(s.replies[0].stage, 'checking'); assert.equal(s.replies[0].group, 'faculty');
   assert.equal(b.locked, false);
 });
