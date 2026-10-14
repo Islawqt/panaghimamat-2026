@@ -32,8 +32,9 @@ h1{margin:0;text-align:center;font:500 clamp(2.3rem,10vw,3rem)/1.02 var(--serif)
 h1 em{color:var(--gold-soft);font-style:italic}
 .lead{margin:0;text-align:center;font:italic 1.15rem/1.35 var(--serif);color:var(--cream-soft)}
 .soft{margin:0;text-align:center;color:var(--cream-soft);font-size:.95rem}
-.seal{align-self:center;width:6.5rem;aspect-ratio:1;display:block;filter:drop-shadow(0 6px 10px rgba(0,0,0,.55))}
-.seal img{width:100%;height:100%;display:block}
+.seal{align-self:center;width:7.5rem;aspect-ratio:1;display:block;border-radius:50%;padding:5px;background:#f5ecd8;border:2px solid var(--gold);box-shadow:0 0 0 5px rgba(201,162,92,.22),0 10px 24px rgba(0,0,0,.55)}
+.seal img{width:100%;height:100%;display:block;border-radius:50%;object-fit:contain}
+.topbar .mark{width:38px;height:38px;flex:none;border-radius:50%;padding:2px;background:#f5ecd8;border:1px solid var(--gold)}
 /* paper cards with a deckled edge and a thin gold rule, like the invitation */
 .card,.guest,.hint{position:relative;isolation:isolate;color:var(--ink)}
 .card:after,.guest:after,.hint:after{content:'';position:absolute;inset:0;z-index:-1;filter:url(#deckle);
@@ -134,7 +135,7 @@ h1 em{color:var(--gold-soft);font-style:italic}
   <!-- 1. Unlock -->
   <section class="screen" id="sStart">
     <span class="eyebrow">SSC · Door Scanner</span>
-    <div class="seal" aria-hidden="true"><img src="assets/wax-seal.png" alt="" width="320" height="320"></div>
+    <div class="seal"><img src="assets/ssc-logo.png" alt="Supreme Student Council, STI College Valencia" width="320" height="320"></div>
     <h1>Panaghimamat <em>2026</em></h1>
     <p class="lead">Scan each guest’s QR ticket at the entrance. Each ticket gets in once.</p>
     <form class="card" id="startForm" novalidate>
@@ -157,6 +158,7 @@ h1 em{color:var(--gold-soft);font-style:italic}
   <section class="screen cam" id="sCam" hidden>
     <div class="topbar">
       <span class="pill count" id="countPill">— inside</span>
+      <img class="mark" src="assets/ssc-logo.png" alt="" width="38" height="38">
       <span class="pill who" id="whoPill"></span>
     </div>
     <div class="finder" id="finder">
@@ -184,6 +186,7 @@ h1 em{color:var(--gold-soft);font-style:italic}
   <section class="screen list" id="sList" hidden>
     <div class="topbar">
       <button class="pill back" type="button" id="backToScan">← Scanner</button>
+      <img class="mark" src="assets/ssc-logo.png" alt="" width="38" height="38">
       <span class="pill count" id="listCount">— inside</span>
     </div>
     <div class="seg group" role="tablist" aria-label="Group">
