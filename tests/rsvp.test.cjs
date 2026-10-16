@@ -1,9 +1,19 @@
-const { test } = require('node:test');
+const { test: runTest } = require('node:test');
 const assert = require('node:assert/strict');
-const { readFileSync } = require('node:fs');
+const { readFileSync, existsSync } = require('node:fs');
 const { join } = require('node:path');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
+
+// Keep backend source out of the public repo. Supply a private copy to run these tests.
+const backendDir = process.env.PANAGHIMAMAT_BACKEND_DIR || join(__dirname, '../private/google-apps-script');
+const backendAvailable = ['Code.gs', 'QR.gs'].every((name) => existsSync(join(backendDir, name)));
+if (process.env.PANAGHIMAMAT_BACKEND_DIR && !backendAvailable) {
+  throw new Error('PANAGHIMAMAT_BACKEND_DIR must contain Code.gs and QR.gs.');
+}
+const test = (name, fn) => runTest(name, {
+  skip: backendAvailable ? false : 'Private Apps Script source not supplied; set PANAGHIMAMAT_BACKEND_DIR to run.'
+}, fn);
 
 // In-memory Google service doubles: never contact the production sheet or Drive.
 function backend({ legacy = false } = {}) {
@@ -69,8 +79,8 @@ function backend({ legacy = false } = {}) {
     DriveApp: { getFolderById: () => ({ createFile: () => { assert.ok(locked); uploads++; return { getUrl: () => `https://drive.google.com/file/d/mock-${uploads}` }; } }) }
   };
   vm.createContext(context);
-  vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/QR.gs'), 'utf8'), context);
-  vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/Code.gs'), 'utf8'), context);
+  vm.runInContext(readFileSync(join(backendDir, 'QR.gs'), 'utf8'), context);
+  vm.runInContext(readFileSync(join(backendDir, 'Code.gs'), 'utf8'), context);
   return { sheets, attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
@@ -250,7 +260,7 @@ test('ticket emails stop at the daily limit and mark bad addresses', () => {
 });
 test('QR.gs makes a GIF picture without a browser', () => {
   const ctx = {}; vm.createContext(ctx);
-  vm.runInContext(readFileSync(join(__dirname, '../google-apps-script/QR.gs'), 'utf8'), ctx);
+  vm.runInContext(readFileSync(join(backendDir, 'QR.gs'), 'utf8'), ctx);
   const ref = 'PH26-4D7228F7CC7942B2A94D4E87106243C1';
   const q = ctx.qrcode(0, 'M'); q.addData(ref); q.make();
   const url = q.createDataURL(8, 4);

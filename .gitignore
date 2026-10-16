@@ -6,3 +6,7 @@ private/
 proofs/
 payment-screenshots/
 *.log
+
+# Apps Script source is maintained privately, outside the public site.
+/google-apps-script/
+*.gs
