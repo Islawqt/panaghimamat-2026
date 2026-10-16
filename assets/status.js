@@ -5,29 +5,74 @@
   const $ = (id) => document.getElementById(id);
   const API = (window.PANAGHIMAMAT_CONFIG || {}).sheetWebAppUrl || '';
   const pause = (ms) => new Promise((r) => setTimeout(r, ms));
-  let ready = null;
+  const REQUEST_LIMIT = 30000;
+  let checking = false, slowTimer = 0;
 
-  async function call(body, ms = 20000) {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), ms);
+  function requestError(kind, retryable = true) {
+    const error = new Error(kind);
+    error.kind = kind;
+    error.retryable = retryable;
+    return error;
+  }
+  async function call(body, ms = REQUEST_LIMIT) {
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    let timer;
     try {
-      const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body), signal: ctrl.signal, credentials: 'omit' });
-      return await res.json();
-    } finally { clearTimeout(t); }
+      return await Promise.race([
+        (async () => {
+          const res = await fetch(API, {
+            method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(body), ...(ctrl ? { signal: ctrl.signal } : {}),
+            credentials: 'omit', redirect: 'follow', cache: 'no-store', referrerPolicy: 'no-referrer'
+          });
+          if (!res.ok) throw requestError('network', res.status === 408 || res.status === 429 || res.status >= 500);
+          let data;
+          try { data = await res.json(); } catch { throw requestError('response'); }
+          if (!data || typeof data.ok !== 'boolean') throw requestError('response');
+          return data;
+        })(),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            reject(requestError('timeout', false));
+            if (ctrl) ctrl.abort();
+          }, ms);
+        })
+      ]);
+    } finally { clearTimeout(timer); }
   }
-  // Status checks exist only on the updated Google script; older versions would treat the request as a reply.
-  function backendReady() {
-    ready ||= fetch(`${API}?action=ping`, { credentials: 'omit' }).then((r) => r.json()).then((d) => /status/.test(String(d && d.version || ''))).catch(() => false);
-    return ready;
+
+  // The deployed API supports status. Go straight to the lookup and retry only this read.
+  // One deadline covers both attempts; resending a ticket is never retried automatically.
+  async function checkStatus(email) {
+    const deadline = Date.now() + REQUEST_LIMIT;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const data = await call({ action: 'status', email }, Math.max(1, deadline - Date.now()));
+        if (data.ok && (typeof data.found !== 'boolean' || !Array.isArray(data.replies) ||
+          data.found !== (data.replies.length > 0) || data.replies.some((r) => !r ||
+            !['student', 'faculty'].includes(r.group) || !['declined', 'verified', 'checking', 'unpaid'].includes(r.stage)))) {
+          throw requestError('response');
+        }
+        return data;
+      } catch (error) {
+        if (attempt || error.retryable === false || deadline - Date.now() < 1000) throw error;
+        $('emailCheckText').textContent = 'Reconnecting…';
+        await pause(250);
+      }
+    }
   }
-  backendReady();
 
   const err = (m) => { $('statusError').textContent = m; $('statusError').hidden = !m; };
   function busy(on) {
+    checking = on;
+    clearTimeout(slowTimer);
+    $('statusForm').setAttribute('aria-busy', String(on));
+    $('statusEmail').readOnly = on;
     $('emailCheck').dataset.state = on ? 'checking' : '';
     $('emailCheckText').textContent = on ? 'Checking…' : '';
     $('statusBtn').disabled = on;
     $('statusBtn').textContent = on ? 'Checking…' : 'Check status';
+    if (on) slowTimer = setTimeout(() => { $('emailCheckText').textContent = 'Still checking…'; }, 5000);
   }
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 
@@ -86,14 +131,14 @@
 
   $('statusForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (checking) return;
     err('');
     const email = $('statusEmail').value.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('statusEmail').focus(); return err('Please type the email you used in your reply, e.g. name@gmail.com.'); }
     busy(true);
     $('statusResult').replaceChildren();
     try {
-      if (!(await backendReady())) return err('Status checks open soon. Please try again later.');
-      const [d] = await Promise.all([call({ action: 'status', email }), pause(900)]);
+      const d = await checkStatus(email);
       if (!d.ok) return err(d.message || 'Could not check your status. Please try again.');
       if (!d.found) {
         const c = el('div', 'paper paper-card st-card');
@@ -101,8 +146,12 @@
         return $('statusResult').replaceChildren(c);
       }
       $('statusResult').replaceChildren(...d.replies.map((r) => card(r, email)));
-    } catch {
-      err('No connection. Please check your signal and try again.');
+    } catch (error) {
+      err(error.kind === 'timeout'
+        ? 'The check took too long. Please try again in a moment.'
+        : error.kind === 'response'
+          ? 'We could not read your status. Please refresh this page and try again.'
+          : 'Could not connect. Please try again. If it keeps happening, try your regular browser or another connection.');
     } finally {
       busy(false);
     }
