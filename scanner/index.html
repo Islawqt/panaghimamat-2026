@@ -145,10 +145,35 @@ h1 em{color:var(--gold-soft);font-style:italic}
 .result.departed{background:#155b51}
 .result.already_out{background:#7a4f10}
 .result.not_in{background:#6d1620}
+
+/* Uninterrupted QR preview: the ticket verdict floats at the bottom of the camera.
+   The camera video continues moving while Apps Script checks the ticket. */
+.finder{isolation:isolate}
+.finder .result{position:absolute;inset:auto 8px 8px;z-index:5;display:grid;grid-template-columns:38px minmax(0,1fr);
+  gap:4px 9px;padding:11px 12px;text-align:left;color:#fff;border-radius:10px;
+  border:1px solid rgba(255,255,255,.65);box-shadow:0 8px 25px rgba(0,0,0,.44);
+  max-height:67%;overflow-y:auto;overscroll-behavior:contain;pointer-events:none;animation:pop .15s ease-out}
+.finder .result:before{display:none}
+.finder .result.admitted,.finder .result.departed{background:rgba(18,76,43,.96)}
+.finder .result.used,.finder .result.already_out{background:rgba(115,71,15,.97)}
+.finder .result.unpaid,.finder .result.declined,.finder .result.invalid,.finder .result.error,.finder .result.not_in{background:rgba(104,21,34,.96)}
+.finder .result .icon{grid-row:1/span 2;grid-column:1;width:35px;height:35px;border:1px solid #fff;border-radius:50%;
+  box-shadow:none;font:600 1.3rem/1 var(--serif);align-self:center}
+.finder .result .verdict{grid-column:2;margin:0;padding:0;border:0;transform:none;letter-spacing:.04em;
+  font:700 clamp(.9rem,4vw,1.16rem)/1.15 var(--body)}
+.finder .result .name{grid-column:2;margin:0;font:600 clamp(1.05rem,4.8vw,1.45rem)/1.15 var(--serif)}
+.finder .result .meta,.finder .result .detail,.finder .result .owner{grid-column:1/-1;margin:0;font-size:.86rem;line-height:1.2}
+.finder .result .owner{font-size:.78rem;padding:0;border:0;background:none}
+.finder .result #undoBtn{grid-column:1/-1;min-height:37px;justify-self:stretch;
+  padding:.35rem .6rem;font-size:.83rem;pointer-events:auto}
+.finder .result .btn{margin-top:2px}
+.finder .busy{z-index:4;bottom:auto;top:10px;border-radius:20px}
+.finder .result[hidden]{display:none!important}
+@media(max-width:450px){.finder .result{inset:auto 6px 6px;padding:8px 10px;gap:3px 8px}}
 </style>
 <script src="config.js" defer></script>
 <script src="assets/vendor/jsQR.js" defer></script>
-<script src="assets/scanner.js?v=20261020-officers-only" defer></script>
+<script src="assets/scanner.js?v=20261020-live-lens" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><filter id="deckle" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/></filter></defs></svg>
@@ -198,6 +223,17 @@ h1 em{color:var(--gold-soft);font-style:italic}
       <div class="lock" id="lock" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="busy" id="busy" hidden>Checking…</div>
       <div class="msg" id="camMsg" hidden></div>
+    <!-- Compact verdict stays over live camera; no second scan button -->
+    <section class="result" id="result" hidden role="alert" aria-live="assertive">
+    <div class="icon" id="rIcon" aria-hidden="true">✓</div>
+    <p class="verdict" id="rVerdict">Welcome</p>
+    <p class="name" id="rName"></p>
+    <p class="meta" id="rMeta"></p>
+    <p class="detail" id="rDetail"></p>
+    <p class="owner" id="rOwner" hidden>Is this the ticket owner, in person? If not, tap Undo. A ticket scanned for someone who isn’t here is void.</p>
+    <button class="btn ghost" type="button" id="undoBtn" hidden>Undo this check-in</button>
+  </section>
+
     </div>
     <p class="tip">Point the camera at the guest’s QR code</p>
     <div class="row">
@@ -237,17 +273,6 @@ h1 em{color:var(--gold-soft);font-style:italic}
     <button class="btn ghost" type="button" id="listRefresh">Refresh list</button>
   </section>
 
-  <!-- Result -->
-  <section class="result" id="result" hidden role="alert" aria-live="assertive">
-    <div class="icon" id="rIcon" aria-hidden="true">✓</div>
-    <p class="verdict" id="rVerdict">Welcome</p>
-    <p class="name" id="rName"></p>
-    <p class="meta" id="rMeta"></p>
-    <p class="detail" id="rDetail"></p>
-    <p class="owner" id="rOwner" hidden>Is this the ticket owner, in person? If not, tap Undo. A ticket scanned for someone who isn’t here is void.</p>
-    <button class="btn cream" type="button" id="nextBtn">Scan next guest</button>
-    <button class="btn ghost" type="button" id="undoBtn" hidden>Undo this check-in</button>
-  </section>
 
 </main>
 </body>

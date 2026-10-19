@@ -8,6 +8,7 @@
   const keys = ['checkinOpens', 'checkinCloses', 'checkoutOpens', 'checkoutCloses'];
   const defaults = {checkinOpens:'12:45', checkinCloses:'17:00', checkoutOpens:'17:00', checkoutCloses:'23:59'};
   let credentials = null, current = null, guests = [], dirty = false, refreshing = false;
+  let dateSupported = false, presenceSupported = false, presenceBusy = false, presence = [];
   const session = () => ({user:credentials.user, pass:credentials.pass});
   const notice = (node, message, type = '') => {
     node.textContent = message || ''; node.hidden = !message;
@@ -47,7 +48,15 @@
       const el=$(key); el.className = 'pill ' + (live?'open':'closed');
       el.textContent = (key === 'statusCheckin'?'Check-in ':'Check-out ') + (live?'open':'closed');
     }
-    if (!dirty) keys.forEach(k=>{ $(k).value = w[k] || defaults[k]; });
+    dateSupported = /^\d{4}-\d{2}-\d{2}$/.test(w.eventDate || '');
+    $('eventDate').disabled = !dateSupported;
+    $('eventDateSupport').textContent = dateSupported
+      ? 'The date only controls scanning access; invitation and ticket email dates stay unchanged.'
+      : 'Install the new private Apps Script backend to enable custom scanner dates.';
+    if (!dirty) {
+      keys.forEach(k=>{ $(k).value = w[k] || defaults[k]; });
+      $('eventDate').value = dateSupported ? w.eventDate : '2026-10-23';
+    }
   }
 
   function stats() {
@@ -198,6 +207,46 @@
     }finally{refreshing=false;btn.disabled=false;btn.textContent='Refresh attendance';}
   }
 
+  function renderPresence() {
+    const root=$('presenceList');root.replaceChildren();
+    if(!presenceSupported) {
+      $('onlineScannerCount').textContent='Backend update needed';
+      const p=document.createElement('p');p.className='officer-empty';
+      p.textContent='Live officer status is not available until Apps Script is updated.';
+      root.append(p);return;
+    }
+    $('onlineScannerCount').textContent=presence.filter(o=>o.online).length+' / '+presence.length+' online';
+    for(const officer of presence) {
+      const div=document.createElement('div');div.className='presence-item'+(officer.online?' online':'');
+      const name=document.createElement('span');name.className='name';name.textContent=officer.name||officer.username||'Officer';
+      const detail=document.createElement('span');detail.className='detail';
+      detail.textContent=officer.online?'Online · '+(officer.mode==='checkout'?'Check-out':'Check-in'):'Offline';
+      div.append(name,detail);root.append(div);
+    }
+    if(!presence.length){const p=document.createElement('p');p.className='officer-empty';p.textContent='No configured scanner officers.';root.append(p);}
+  }
+  async function refreshPresence(){
+    if(!credentials || !presenceSupported || presenceBusy || document.hidden)return;
+    presenceBusy=true;
+    try {
+      const d=await request({action:'officerPresence',...session()},20000);
+      if(d.ok && Array.isArray(d.officers)){presence=d.officers;renderPresence();}
+      else $('onlineScannerCount').textContent='Status temporarily unavailable';
+    } catch { $('onlineScannerCount').textContent='Connection unavailable'; }
+    finally {presenceBusy=false;}
+  }
+  async function probePresence(){
+    if(!credentials || document.hidden)return;
+    try{
+      const r=await fetch(API+'?action=ping',{credentials:'omit',cache:'no-store'});
+      const d=await r.json();
+      presenceSupported=!!(d.features&&d.features.officerPresence);
+      if(d.window)renderWindow(d.window);
+      renderPresence();
+      if(presenceSupported)await refreshPresence();
+    }catch{}
+  }
+
   $('loginForm').addEventListener('submit',async e=>{
     e.preventDefault();if(credentials)return;
     const user=$('user').value.trim().toLowerCase(),pass=$('pass').value;
@@ -217,12 +266,14 @@
       $('dashboard').hidden=false;
       renderWindow(d.window);
       await refreshAttendance();
+      await probePresence();
     }catch(err){authError(friendly(err));}
     finally{btn.disabled=false;btn.textContent='Sign in to administration';}
   });
 
   function signOut(){
-    credentials=null;current=null;guests=[];dirty=false;
+    credentials=null;current=null;guests=[];dirty=false;presence=[];dateSupported=false;presenceSupported=false;
+    renderPresence();
     $('user').value='';$('pass').value='';$('loginScreen').hidden=false;
     $('dashboard').hidden=true;$('signOut').hidden=true;
     $('topName').textContent='Private officer administration';$('guestList').replaceChildren();
@@ -236,7 +287,7 @@
   }
   $('signOut').addEventListener('click',signOut);
 
-  keys.forEach(k=>$(k).addEventListener('input',()=>{
+  [...keys,'eventDate'].forEach(k=>$(k).addEventListener('input',()=>{
     dirty=true;
     scheduleMessage('Unsaved schedule changes · Save or discard before leaving.');
   }));
@@ -248,15 +299,24 @@
     e.preventDefault();
     if(!credentials||!current)return;
     const schedule=Object.fromEntries(keys.map(k=>[k,$(k).value]));
+    if (dateSupported) {
+      const date=$('eventDate').value;
+      const parsed=/^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(date+'T12:00:00Z') : null;
+      if (!parsed || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10)!==date) {
+        scheduleMessage('Please choose a valid scanner date.','error'); return;
+      }
+      schedule.eventDate=date;
+    }
     if(!Object.values(schedule).every(v=>timePattern.test(v))
       ||schedule.checkinOpens>=schedule.checkinCloses
       ||schedule.checkoutOpens>=schedule.checkoutCloses
       ||schedule.checkoutOpens<schedule.checkinOpens){
       scheduleMessage('Invalid schedule. Each opening must precede closing, and check-out cannot start before check-in.','error');return;
     }
-    const old=keys.map(k=>current[k]).join(' / '),next=keys.map(k=>schedule[k]).join(' / ');
+    const fields=dateSupported?['eventDate',...keys]:keys;
+    const old=fields.map(k=>current[k]).join(' / '),next=fields.map(k=>schedule[k]).join(' / ');
     if(old===next){dirty=false;scheduleMessage('No changes to save.');return;}
-    if(!window.confirm('Apply updated event schedule to all officer scanners?\n\nCurrent: '+old+'\nNew: '+next+'\n\nTimes are Philippine time.'))return;
+    if(!window.confirm('Apply updated event schedule to all officer scanners?\n\nCurrent: '+old+'\nNew: '+next+'\n\nScanner date changes do not reset any guest attendance. Invitation and ticket email dates stay unchanged. Times are Philippine time.'))return;
     const btn=$('saveSchedule');btn.disabled=true;scheduleMessage('Saving schedule…');
     try{
       const d=await request({action:'setAttendanceSchedule',...session(),schedule},45000);
@@ -282,6 +342,7 @@
   setInterval(()=>{
     if (credentials && !document.hidden && !refreshing && !dirty) refreshAttendance();
   },120000);
+  setInterval(()=>{if(credentials && !document.hidden) void probePresence();},60000);
   window.addEventListener('beforeunload',e=>{
     if(dirty && credentials){e.preventDefault();e.returnValue='';}
   });

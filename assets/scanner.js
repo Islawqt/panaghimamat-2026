@@ -14,14 +14,16 @@
   const auth = () => ({ user, pass });
   let lastRef = '', guests = [], listView = 'out', listGroup = 'student';
   let mode = 'checkin', windowStatus = null, checkoutEnabled = false;
+  let presenceSupported = false, heartbeatBusy = false, toastTimer = null, shownAt = 0;
+  let qrGoneAt = 0;
   const allowed = (m) => !checkoutEnabled || !!(windowStatus && (m === 'checkout' ? windowStatus.checkoutOpen : windowStatus.checkinOpen));
   function switchMode(m) {
     if (!allowed(m) || (m === 'checkout' && !checkoutEnabled)) return;
-    mode = m; lastText = ''; lastAt = 0;
+    mode = m; lastText = ''; lastAt = 0; qrGoneAt = 0;
+    hideResult();
     $('chooseCheckin').setAttribute('aria-pressed', String(m === 'checkin'));
     $('chooseCheckout').setAttribute('aria-pressed', String(m === 'checkout'));
     $('manualAction').textContent = m === 'checkout' ? 'Check out' : 'Check in';
-    $('nextBtn').textContent = m === 'checkout' ? 'Next departure' : 'Scan next guest';
     drawList();
   }
   function updateWindow(w) {
@@ -85,7 +87,7 @@
       setCount(d.stats);
       $('whoPill').textContent = officer;
       $('sStart').hidden = true; $('sCam').hidden = false;
-      startCamera();
+      await startCamera();
       wake();
     } catch {
       showErr('No connection. Check your signal and try again.');
@@ -99,6 +101,7 @@
   $('lockBtn').addEventListener('click', () => {
     stopCamera();
     store.set('ph26-officer-pass', ''); pass = ''; officer = '';
+    hideResult(); presenceSupported = false; lastText = ''; qrGoneAt = 0;
     $('attendanceModes').hidden = true;
     $('officerPass').value = ''; $('officerPass').placeholder = 'From the SSC President';
     $('sCam').hidden = true; $('sList').hidden = true; $('sStart').hidden = false;
@@ -134,7 +137,10 @@
     stream = null;
   }
   $('flipBtn').addEventListener('click', () => { facing = facing === 'environment' ? 'user' : 'environment'; startCamera(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); else if (!$('sCam').hidden && $('result').hidden) startCamera(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopCamera();
+    else if (!$('sCam').hidden && officer) startCamera();
+  });
 
   // Returns { text, pts } where pts are the QR's 4 corners in video pixels (TL, TR, BR, BL).
   async function readFrame() {
@@ -180,30 +186,62 @@
   }
   async function loop() {
     if (!scanning) return;
-    if (!busy && $('result').hidden) {
+    if (!busy) {
       const hit = await readFrame();
+      if (!scanning) return;
       const text = hit ? String(hit.text || '').trim() : '';
       const now = Date.now();
-      if (hit) placeLock(hit.pts);
+      if (hit && hit.pts?.length >= 4) placeLock(hit.pts);
       else if (now - seenAt > 350) releaseLock();
-      if (text && !(text === lastText && now - lastAt < 4000)) {
-        lastText = text; lastAt = now;
-        // Lock on and freeze the picture while the Sheet answers.
-        $('lock').classList.add('locked');
-        $('video').pause();
-        check(text);
+      if (text) {
+        qrGoneAt = 0;
+        // A ticket held in front of the lens is one scan, not dozens of requests.
+        // Move it away before presenting the same QR again.
+        if (text !== lastText && ($('result').hidden || now - shownAt > 1600)) {
+          hideResult();
+          lastText = text; lastAt = now;
+          $('lock').classList.add('locked');
+          void check(text);
+        }
+      } else if (lastText) {
+        if (!qrGoneAt) qrGoneAt = now;
+        if (now - qrGoneAt > 850) { lastText = ''; qrGoneAt = 0; }
       }
     }
-    timer = setTimeout(loop, 90);
+    timer = setTimeout(loop, 110);
   }
-  function resumeCamera() {
+  function hideResult() {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+    $('result').hidden = true;
     releaseLock();
-    const v = $('video');
-    if (stream && v.paused) v.play().catch(() => {});
   }
+  function resumeCamera() { releaseLock(); }
   // Keep the Google script awake while the scanner is open, so the first scan is not slow.
-  const wake = () => { if (!$('sCam').hidden && !document.hidden) fetch(`${API}?action=ping`, { credentials: 'omit' }).catch(() => {}); };
-  setInterval(wake, 4 * 60 * 1000);
+  // Only use new authenticated heartbeat actions once the deployed backend
+  // advertises support. An old Apps Script would otherwise treat an unknown
+  // action as an RSVP submission.
+  async function heartbeat() {
+    if (!presenceSupported || heartbeatBusy || !officer || !scanning || document.hidden || $('sCam').hidden) return;
+    heartbeatBusy = true;
+    try {
+      const d = await post({ action: 'scannerHeartbeat', ...auth(), mode }, 12000);
+      if (d.ok && d.window) updateWindow(d.window);
+    } catch { /* connectivity may be interrupted; status expires automatically */ }
+    finally { heartbeatBusy = false; }
+  }
+  async function probeCapabilities() {
+    try {
+      const response = await fetch(API + '?action=ping', { credentials:'omit',cache:'no-store' });
+      const data = await response.json();
+      presenceSupported = !!(data.features && data.features.officerPresence);
+      if (data.window) updateWindow(data.window);
+      if (presenceSupported) void heartbeat();
+    } catch {}
+  }
+  const wake = () => { if (officer && $('sCam').hidden === false && !document.hidden) void probeCapabilities(); };
+  setInterval(heartbeat, 45000);
+  setInterval(wake, 120000);
 
   /* ---------- Check-in ---------- */
   function feedback(good) {
@@ -236,8 +274,10 @@
     $('rMeta').textContent = g.name ? (g.group === 'faculty' ? 'Faculty' : (g.section ? `Student · ${g.section}` : 'Student')) : '';
     $('rDetail').textContent = d.message || '';
     r.hidden = false;
+    shownAt = Date.now();
     feedback(kind === 'admitted' || kind === 'departed');
-    $('nextBtn').focus();
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideResult, kind === 'admitted' ? 8500 : (kind === 'departed' ? 5400 : 3500));
   }
   async function check(text) {
     busy = true; $('busy').hidden = false;
@@ -259,8 +299,6 @@
       if ($('result').hidden) resumeCamera();
     }
   }
-  // The same ticket is ignored for 4 seconds after Next, so a guest still holding it up is not re-scanned.
-  $('nextBtn').addEventListener('click', () => { $('result').hidden = true; lastAt = Date.now(); resumeCamera(); });
   $('undoBtn').addEventListener('click', async () => {
     if (!lastRef) return;
     $('undoBtn').disabled = true; $('undoBtn').textContent = 'Undoing…';
@@ -276,9 +314,7 @@
 
   /* ---------- Attendance list ---------- */
   // Shown only once the deployed Google script supports it.
-  $('listBtn').hidden = true;
-  fetch(`${API}?action=ping`, { credentials: 'omit' }).then((r) => r.json())
-    .then((d) => { $('listBtn').hidden = !/officers/.test(String(d && d.version || '')); }).catch(() => {});
+  $('listBtn').hidden = false; // Attendance is supported by the deployed backend; version names can change.
   const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ');
   function drawList() {
     const q = norm($('listSearch').value).trim();

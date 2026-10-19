@@ -210,9 +210,27 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
   .windows{grid-template-columns:1fr 1fr;gap:8px}
   .windows input{padding:8px 6px}
 }
+
+.event-date-field{margin:0 0 17px}.event-date-field input{max-width:280px;font-size:16px}
+.event-date-field input:disabled{background:#f2e9dd;color:#846d59}
+.event-date-field small{display:block;color:var(--muted);margin-top:5px;font-size:.84rem}
+.presence-panel{padding:16px 20px;border-bottom:1px solid var(--line);background:#fffbf5}
+.presence-heading{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.presence-heading strong{font:600 1.35rem var(--display);color:var(--wine)}
+.presence-heading span{font:.82rem var(--body);color:var(--muted)}
+.presence-list{display:grid;gap:7px;margin-top:12px}
+.presence-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px;
+  background:#fff;border:1px solid var(--line);border-radius:9px}
+.presence-item .name{font:600 .95rem var(--body);min-width:0}
+.presence-item .name::before{content:"";display:inline-block;width:8px;height:8px;background:#aea399;border-radius:50%;margin-right:8px}
+.presence-item.online .name::before{background:#24835a;box-shadow:0 0 0 3px #e5f2eb}
+.presence-item .detail{font:.8rem var(--body);color:var(--muted);white-space:nowrap}
+.presence-item.online .detail{color:#226647}
+.presence-help{margin:12px 0 0;font:.84rem/1.3 var(--body);color:var(--muted)}
+@media(max-width:520px){.event-date-field input{max-width:none}.presence-panel{padding:14px 16px}.presence-item .detail{font-size:.76rem}}
 </style>
 <script src="config.js" defer></script>
-<script src="assets/admin.js?v=20261020-copy-schedule" defer></script>
+<script src="assets/admin.js?v=20261020-live-presence-date" defer></script>
 </head>
 <body>
 <header class="top">
@@ -256,13 +274,17 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
     <div class="columns">
       <div class="stack">
         <section class="panel" aria-labelledby="scheduleTitle">
-          <div class="panel-head"><h2 id="scheduleTitle">Scanner schedule</h2><p>Kung imohang e customize ang oras diri kay affected ang imong mga officers ug para ni karong October 23, 2026 nga time.</p></div>
+          <div class="panel-head"><h2 id="scheduleTitle">Scanner schedule</h2><p>Kung imong i-customize ang adlaw ug oras diri, maapektuhan ang tanang scanner sa imong officers.</p></div>
           <div class="panel-content">
             <p class="section-label">Current access</p>
             <div class="statusline"><span id="statusCheckin" class="pill closed">Check-in closed</span><span id="statusCheckout" class="pill closed">Check-out closed</span></div>
             <hr class="divider">
             <form id="scheduleForm" novalidate>
-              <p class="section-label">Opening &amp; closing times</p>
+              <p class="section-label">Scanner date and hours</p>
+              <div class="field event-date-field"><label for="eventDate">Scanner date</label>
+                <input type="date" id="eventDate" value="2026-10-23" disabled required>
+                <small id="eventDateSupport">October 23, 2026 is the current backend's fixed scanner date.</small>
+              </div>
               <div class="windows">
                 <div class="field"><label for="checkinOpens">Check-in opens</label><input type="time" id="checkinOpens" step="60" required></div>
                 <div class="field"><label for="checkinCloses">Check-in closes</label><input type="time" id="checkinCloses" step="60" required></div>
@@ -271,7 +293,7 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
               </div>
               <div class="finder"><button class="button" type="submit" id="saveSchedule">Save new schedule</button><button type="button" class="button secondary" id="undoChanges">Discard edits</button></div>
             </form>
-            <p class="help">Mag-overlap gyud nang check-in ug check-out. Ang pagpasulod sa mga guest, duplicate checks, ug ang clock restrictions kay i-enforce sa Apps Script (ako bahala).</p>
+            <p class="help">Pwede mag-overlap ang check-in ug check-out. Scanner access lang ang mausab; dili mausab ang invitation ug ticket email dates.</p>
             <p id="scheduleFeedback" class="notice" role="status" hidden></p>
           </div>
         </section>
@@ -279,6 +301,11 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
           <div class="panel-head panel-head-split">
             <div><p class="panel-kicker">Officer overview</p><h2 id="officersTitle">Scanner activity</h2><p>Mamonitor nimo imo mga officers na mag scan ug pilay nag scan ug manual check in.</p></div>
             <span id="activeOfficerCount" class="live-count" title="Based on scans in the last 15 minutes">0 recently scanning</span>
+          </div>
+          <div class="presence-panel">
+            <div class="presence-heading"><strong>Live scanner status</strong><span id="onlineScannerCount">Backend update needed</span></div>
+            <div id="presenceList" class="presence-list" aria-live="polite"><p class="officer-empty">Live status needs the upgraded Apps Script.</p></div>
+            <p class="presence-help">An officer counts as online when their scanner reports in the last 2 minutes.</p>
           </div>
           <div class="officer-summary">
             <div><strong id="officerScanCount">0</strong><span>Recorded actions</span></div>
