@@ -228,9 +228,35 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
 .presence-item.online .detail{color:#226647}
 .presence-help{margin:12px 0 0;font:.84rem/1.3 var(--body);color:var(--muted)}
 @media(max-width:520px){.event-date-field input{max-width:none}.presence-panel{padding:14px 16px}.presence-item .detail{font-size:.76rem}}
+
+/* Simple two-step check-in / check-out schedule. All saves remain server-authorized. */
+.schedule-quick{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:3px 0 15px}
+.schedule-quick span{font:.88rem var(--body);color:var(--muted);margin-right:3px}
+.quick-btn{background:#faf4e9;border:1px solid #c8aa7d;color:var(--wine);border-radius:999px;
+  padding:7px 13px;min-height:36px;font:600 .85rem var(--body)}
+.quick-btn:hover,.quick-btn:focus-visible{background:#f0e0c4}
+.schedule-groups{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.schedule-group{min-width:0;border:1px solid #dfcba8;background:#fffcf5;border-radius:12px;padding:14px}
+.schedule-group header{display:flex;gap:9px;align-items:center;margin-bottom:14px}
+.schedule-index{display:grid;place-items:center;flex:none;border-radius:8px;background:var(--wine);
+  color:#f7ead4;width:27px;height:27px;font:600 .92rem var(--body)}
+.schedule-group h3{font:600 1.52rem/1 var(--display);margin:0;color:var(--wine)}
+.schedule-group header small{display:block;margin-top:3px;color:var(--muted);font:.8rem/1.2 var(--body)}
+.schedule-group .windows{gap:10px}
+.schedule-group .windows label{font-size:.85rem;color:#715344}
+.schedule-group input{width:100%;min-width:0;padding:9px 8px;font-size:16px}
+.schedule-group input[aria-invalid="true"]{outline:2px solid #a13c43;outline-offset:1px;border-color:#a13c43}
+.schedule-preview{padding:12px 13px;border-radius:8px;background:#f5ebda;margin:15px 0 6px;
+  font:.98rem/1.45 var(--body);color:var(--wine)}
+.schedule-tip{font:.85rem/1.35 var(--body);color:var(--muted);margin:7px 0 17px}
+.schedule-actions{margin-top:8px}
+@media(max-width:950px){.schedule-groups{grid-template-columns:1fr}}
+@media(min-width:851px) and (max-width:1100px){.schedule-group .windows{grid-template-columns:1fr}}
+@media(max-width:580px){.schedule-groups{gap:10px}.schedule-group{padding:13px}.schedule-group .windows{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .schedule-quick{gap:6px}.schedule-actions .button{flex:1 1 145px}.schedule-preview{font-size:.94rem}}
 </style>
 <script src="config.js" defer></script>
-<script src="assets/admin.js?v=20261020-live-presence-date" defer></script>
+<script src="assets/admin.js?v=20261020-easy-hours" defer></script>
 </head>
 <body>
 <header class="top">
@@ -280,20 +306,37 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
             <div class="statusline"><span id="statusCheckin" class="pill closed">Check-in closed</span><span id="statusCheckout" class="pill closed">Check-out closed</span></div>
             <hr class="divider">
             <form id="scheduleForm" novalidate>
-              <p class="section-label">Scanner date and hours</p>
-              <div class="field event-date-field"><label for="eventDate">Scanner date</label>
+              <p class="section-label">Pili og date ug oras</p>
+              <div class="field event-date-field"><label for="eventDate">Adlaw sa scanning</label>
                 <input type="date" id="eventDate" value="2026-10-23" disabled required>
                 <small id="eventDateSupport">October 23, 2026 is the current backend's fixed scanner date.</small>
               </div>
-              <div class="windows">
-                <div class="field"><label for="checkinOpens">Check-in opens</label><input type="time" id="checkinOpens" step="60" required></div>
-                <div class="field"><label for="checkinCloses">Check-in closes</label><input type="time" id="checkinCloses" step="60" required></div>
-                <div class="field"><label for="checkoutOpens">Check-out opens</label><input type="time" id="checkoutOpens" step="60" required></div>
-                <div class="field"><label for="checkoutCloses">Check-out closes</label><input type="time" id="checkoutCloses" step="60" required></div>
+              <div class="schedule-quick">
+                <span>Paspas nga schedule:</span>
+                <button type="button" class="quick-btn" id="quickNormal">Normal</button>
+                <button type="button" class="quick-btn" id="quickOverlap">15-min overlap</button>
               </div>
-              <div class="finder"><button class="button" type="submit" id="saveSchedule">Save new schedule</button><button type="button" class="button secondary" id="undoChanges">Discard edits</button></div>
+              <div class="schedule-groups">
+                <section class="schedule-group" aria-labelledby="checkinTitle">
+                  <header><span class="schedule-index">1</span><div><h3 id="checkinTitle">Check-in</h3><small>Oras sa pagpasulod sa guests</small></div></header>
+                  <div class="windows">
+                    <div class="field"><label for="checkinOpens">Sugod</label><input type="time" id="checkinOpens" step="60" required></div>
+                    <div class="field"><label for="checkinCloses">Human</label><input type="time" id="checkinCloses" step="60" required></div>
+                  </div>
+                </section>
+                <section class="schedule-group" aria-labelledby="checkoutTitle">
+                  <header><span class="schedule-index">2</span><div><h3 id="checkoutTitle">Check-out</h3><small>Oras sa paggawas sa guests</small></div></header>
+                  <div class="windows">
+                    <div class="field"><label for="checkoutOpens">Sugod</label><input type="time" id="checkoutOpens" step="60" required></div>
+                    <div class="field"><label for="checkoutCloses">Human</label><input type="time" id="checkoutCloses" step="60" required></div>
+                  </div>
+                </section>
+              </div>
+              <p class="schedule-preview" id="schedulePreview" aria-live="polite">Pilía ang oras sa taas.</p>
+              <p class="schedule-tip">Puwede mag-overlap ang check-in ug check-out. Dili pa ni ma-apply hangtod i-save nimo.</p>
+              <div class="finder schedule-actions"><button class="button" type="submit" id="saveSchedule">Save schedule</button><button type="button" class="button secondary" id="undoChanges">Balik sa saved time</button></div>
             </form>
-            <p class="help">Pwede mag-overlap ang check-in ug check-out. Scanner access lang ang mausab; dili mausab ang invitation ug ticket email dates.</p>
+            <p class="help">Ang pag-usab diri para ra sa scanner. Dili mausab ang date sa invitation ug ticket email.</p>
             <p id="scheduleFeedback" class="notice" role="status" hidden></p>
           </div>
         </section>

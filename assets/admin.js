@@ -38,6 +38,34 @@
   const validRole = role => ['admin','president'].includes(String(role||'').trim().toLowerCase());
   const textTime = val => String(val||'—');
   const timePattern = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+  const prettyTime = value => {
+    if (!timePattern.test(value || '')) return '—';
+    const [hour,minute]=value.split(':').map(Number);
+    return (hour % 12 || 12)+':'+String(minute).padStart(2,'0')+(hour<12?' AM':' PM');
+  };
+  function previewSchedule() {
+    const values=Object.fromEntries(keys.map(key=>[key,$(key).value]));
+    $('schedulePreview').textContent='Check-in: '+prettyTime(values.checkinOpens)+' – '+prettyTime(values.checkinCloses)+
+      '  ·  Check-out: '+prettyTime(values.checkoutOpens)+' – '+prettyTime(values.checkoutCloses);
+  }
+  function invalidTime(ids, message) {
+    ids.forEach(key=>$(key).setAttribute('aria-invalid','true'));
+    scheduleMessage(message,'error');
+  }
+  function clearTimeErrors() {
+    keys.forEach(key=>$(key).removeAttribute('aria-invalid'));
+  }
+  const quickTimes={
+    normal:{checkinOpens:'12:45',checkinCloses:'17:00',checkoutOpens:'17:00',checkoutCloses:'17:30'},
+    overlap:{checkinOpens:'12:45',checkinCloses:'17:00',checkoutOpens:'16:45',checkoutCloses:'17:30'}
+  };
+  function chooseQuickSchedule(name) {
+    const times=quickTimes[name]; if(!times || !credentials) return;
+    keys.forEach(key=>{$(key).value=times[key];});
+    dirty=true;clearTimeErrors();previewSchedule();
+    scheduleMessage('Napili na ang schedule. Pindota ang Save schedule aron ma-apply sa tanang officers.');
+  }
+
 
   function renderWindow(w) {
     if (!w || typeof w.checkinOpen !== 'boolean' || typeof w.checkoutOpen !== 'boolean') return;
@@ -56,6 +84,8 @@
     if (!dirty) {
       keys.forEach(k=>{ $(k).value = w[k] || defaults[k]; });
       $('eventDate').value = dateSupported ? w.eventDate : '2026-10-23';
+      clearTimeErrors();
+      previewSchedule();
     }
   }
 
@@ -289,10 +319,14 @@
 
   [...keys,'eventDate'].forEach(k=>$(k).addEventListener('input',()=>{
     dirty=true;
-    scheduleMessage('Unsaved schedule changes · Save or discard before leaving.');
+    clearTimeErrors();
+    previewSchedule();
+    scheduleMessage('Wala pa na-save ang oras. Pindota ang Save schedule aron ma-apply.');
   }));
+  $('quickNormal').addEventListener('click',()=>chooseQuickSchedule('normal'));
+  $('quickOverlap').addEventListener('click',()=>chooseQuickSchedule('overlap'));
   $('undoChanges').addEventListener('click',()=>{
-    dirty=false;if(current)renderWindow(current);scheduleMessage('');
+    dirty=false;if(current)renderWindow(current);clearTimeErrors();scheduleMessage('');
   });
 
   $('scheduleForm').addEventListener('submit',async e=>{
@@ -307,22 +341,34 @@
       }
       schedule.eventDate=date;
     }
-    if(!Object.values(schedule).every(v=>timePattern.test(v))
-      ||schedule.checkinOpens>=schedule.checkinCloses
-      ||schedule.checkoutOpens>=schedule.checkoutCloses
-      ||schedule.checkoutOpens<schedule.checkinOpens){
-      scheduleMessage('Invalid schedule. Each opening must precede closing, and check-out cannot start before check-in.','error');return;
+    clearTimeErrors();
+    // Only four clock fields are HH:MM. Scanner date is YYYY-MM-DD.
+    if(keys.some(k=>!timePattern.test(schedule[k]))){
+      invalidTime(keys.filter(k=>!timePattern.test(schedule[k])),'Kompletoha ang oras sa check-in ug check-out.');return;
+    }
+    if(schedule.checkinOpens>=schedule.checkinCloses){
+      invalidTime(['checkinOpens','checkinCloses'],'Sa check-in, dapat mas sayo ang Sugod kaysa Human.');return;
+    }
+    if(schedule.checkoutOpens>=schedule.checkoutCloses){
+      invalidTime(['checkoutOpens','checkoutCloses'],'Sa check-out, dapat mas sayo ang Sugod kaysa Human.');return;
+    }
+    if(schedule.checkoutOpens<schedule.checkinOpens){
+      invalidTime(['checkinOpens','checkoutOpens'],'Dapat mauna ang pagsugod sa check-in kaysa check-out.');return;
     }
     const fields=dateSupported?['eventDate',...keys]:keys;
     const old=fields.map(k=>current[k]).join(' / '),next=fields.map(k=>schedule[k]).join(' / ');
-    if(old===next){dirty=false;scheduleMessage('No changes to save.');return;}
-    if(!window.confirm('Apply updated event schedule to all officer scanners?\n\nCurrent: '+old+'\nNew: '+next+'\n\nScanner date changes do not reset any guest attendance. Invitation and ticket email dates stay unchanged. Times are Philippine time.'))return;
+    if(old===next){dirty=false;scheduleMessage('Walay nausab nga oras.');return;}
+    const when=dateSupported?schedule.eventDate+' · ':'';
+    if(!window.confirm('I-save ni nga schedule para sa tanang officers?\n\n'+when+
+      'Check-in: '+prettyTime(schedule.checkinOpens)+' – '+prettyTime(schedule.checkinCloses)+'\n'+
+      'Check-out: '+prettyTime(schedule.checkoutOpens)+' – '+prettyTime(schedule.checkoutCloses)+
+      '\n\nPhilippine time. Dili mausab ang RSVP records o invitation date.'))return;
     const btn=$('saveSchedule');btn.disabled=true;scheduleMessage('Saving schedule…');
     try{
       const d=await request({action:'setAttendanceSchedule',...session(),schedule},45000);
       if(!d.ok){scheduleMessage(d.message||'Schedule could not be saved.','error');return;}
       if(!d.window){scheduleMessage('Server accepted the request but did not return a schedule. Refresh before changing anything else.','error');return;}
-      dirty=false;renderWindow(d.window);scheduleMessage('Saved. All scanners will follow the new server-side schedule.','success');
+      dirty=false;renderWindow(d.window);scheduleMessage('Na-save na! Mao na ni ang oras nga sundon sa tanang officers.','success');
     }catch(err){scheduleMessage(friendly(err),'error');}
     finally{btn.disabled=false;}
   });
