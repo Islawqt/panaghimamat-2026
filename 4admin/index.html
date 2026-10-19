@@ -212,7 +212,7 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
 }
 </style>
 <script src="config.js" defer></script>
-<script src="assets/admin.js?v=20261020-officers-mobile" defer></script>
+<script src="assets/admin.js?v=20261020-copy-schedule" defer></script>
 </head>
 <body>
 <header class="top">
@@ -244,7 +244,7 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
 
   <section id="dashboard" hidden aria-labelledby="dashboardTitle">
     <div class="intro">
-      <div><p class="eyebrow">Event operations · Private dashboard</p><h1 id="dashboardTitle">Attendance <em>control</em></h1><p class="sub">Control scanner hours and monitor arrivals and departures, without handling QR scans here.</p></div>
+      <div><p class="eyebrow">Event operations · Private dashboard</p><h1 id="dashboardTitle">Attendance <em>control</em></h1><p class="sub">Macontrol nimo ang scanning hours diri thon or macustomize when maopen ang attendance/ticket scanner. Tas mamonitor nimo ang numbers sa in/out.</p></div>
       <div class="meta"><strong id="adminName"></strong><div id="serverTime">Philippine time · —</div><div id="lastUpdated">Not refreshed yet</div></div>
     </div>
     <div class="metrics" aria-label="Attendance overview">
@@ -256,7 +256,7 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
     <div class="columns">
       <div class="stack">
         <section class="panel" aria-labelledby="scheduleTitle">
-          <div class="panel-head"><h2 id="scheduleTitle">Scanner schedule</h2><p>Changes apply to every officer scanner. All times are for October 23, 2026, in Philippine time.</p></div>
+          <div class="panel-head"><h2 id="scheduleTitle">Scanner schedule</h2><p>Kung imohang e customize ang oras diri kay affected ang imong mga officers ug para ni karong October 23, 2026 nga time.</p></div>
           <div class="panel-content">
             <p class="section-label">Current access</p>
             <div class="statusline"><span id="statusCheckin" class="pill closed">Check-in closed</span><span id="statusCheckout" class="pill closed">Check-out closed</span></div>
@@ -271,17 +271,13 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
               </div>
               <div class="finder"><button class="button" type="submit" id="saveSchedule">Save new schedule</button><button type="button" class="button secondary" id="undoChanges">Discard edits</button></div>
             </form>
-            <p class="help">Check-in and check-out may overlap. Guest admission, duplicate checks and the clock restrictions are enforced by Apps Script.</p>
+            <p class="help">Mag-overlap gyud nang check-in ug check-out. Ang pagpasulod sa mga guest, duplicate checks, ug ang clock restrictions kay i-enforce sa Apps Script (ako bahala).</p>
             <p id="scheduleFeedback" class="notice" role="status" hidden></p>
-            <hr class="divider">
-            <p class="section-label">One-time extension</p>
-            <button type="button" id="extendButton" class="button secondary" hidden>Extend check-in closing by 30 minutes</button>
-            <p id="extensionNote" class="help">The extension button is available only when permitted by the server.</p>
           </div>
         </section>
         <section class="panel officers-panel" aria-labelledby="officersTitle">
           <div class="panel-head panel-head-split">
-            <div><p class="panel-kicker">Officer overview</p><h2 id="officersTitle">Scanner activity</h2><p>Successful check-ins and check-outs from all officers.</p></div>
+            <div><p class="panel-kicker">Officer overview</p><h2 id="officersTitle">Scanner activity</h2><p>Mamonitor nimo imo mga officers na mag scan ug pilay nag scan ug manual check in.</p></div>
             <span id="activeOfficerCount" class="live-count" title="Based on scans in the last 15 minutes">0 recently scanning</span>
           </div>
           <div class="officer-summary">
@@ -292,7 +288,7 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
           <div id="officerList" class="officer-list" aria-live="polite">
             <p class="officer-empty">Attendance activity will appear after the first guest is checked in.</p>
           </div>
-          <p class="activity-caveat">“Recently scanning” means a recorded action within 15 minutes, not a live login status. Only officers with recorded actions appear here.</p>
+          <p class="activity-caveat">Ang pasabot sa “recently scanning” kay naa kay na-record nga scan around 15 minutes, dili kay live login status. Ang mga officers lang nga naay na-record nga attendance or scanned ang makita diri.</p>
         </section>
         <p class="tiny-reminder"><span aria-hidden="true">✦</span> Officers scan tickets. Admin manages schedules and monitors attendance.</p>
       </div>

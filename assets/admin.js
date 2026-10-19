@@ -48,11 +48,6 @@
       el.textContent = (key === 'statusCheckin'?'Check-in ':'Check-out ') + (live?'open':'closed');
     }
     if (!dirty) keys.forEach(k=>{ $(k).value = w[k] || defaults[k]; });
-    $('extendButton').hidden = !w.canExtend;
-    $('extensionNote').textContent = w.extended
-      ? 'The one-time extension has already been used.'
-      : (w.canExtend ? 'One-time +30 minutes from the current check-in closing time.' :
-        'The server will offer this shortcut when the extension is permitted. You can still edit the regular schedule above.');
   }
 
   function stats() {
@@ -272,19 +267,6 @@
     finally{btn.disabled=false;}
   });
 
-  $('extendButton').addEventListener('click',async ()=>{
-    if(!credentials||!current?.canExtend)return;
-    if(!window.confirm('Extend the current check-in closing time by 30 minutes for all officers? This action can be used only once.'))return;
-    const btn=$('extendButton');btn.disabled=true;scheduleMessage('Requesting one-time extension…');
-    try{
-      const d=await request({action:'extendCheckin',...session()},45000);
-      if(!d.ok){scheduleMessage(d.message||'Extension not accepted.','error');return;}
-      if(!d.window){scheduleMessage('Extension result did not include a schedule. Refresh before continuing.','error');return;}
-      dirty=false;renderWindow(d.window);
-      scheduleMessage('Confirmed. Check-in now closes at '+d.window.checkinCloses+' Philippine time.','success');
-    }catch(err){scheduleMessage(friendly(err),'error');}
-    finally{btn.disabled=false;}
-  });
   $('refreshButton').addEventListener('click',refreshAttendance);
   ['search','group','state'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',renderGuests));
   // Read-only refresh. A failed poll never commits a change or discards unsaved edits.
