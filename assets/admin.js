@@ -8,7 +8,7 @@
   const keys = ['checkinOpens', 'checkinCloses', 'checkoutOpens', 'checkoutCloses'];
   const defaults = {checkinOpens:'12:45', checkinCloses:'17:00', checkoutOpens:'17:00', checkoutCloses:'17:30'};
   let credentials = null, current = null, guests = [], dirty = false, refreshing = false;
-  let dateSupported = false, presenceSupported = false, presenceBusy = false, presence = [];
+  let dateSupported = false, presenceSupported = false, presenceBusy = false, presence = [], activity = [];
   const session = () => ({user:credentials.user, pass:credentials.pass});
   const notice = (node, message, type = '') => {
     node.textContent = message || ''; node.hidden = !message;
@@ -71,7 +71,7 @@
     if (!w || typeof w.checkinOpen !== 'boolean' || typeof w.checkoutOpen !== 'boolean') return;
     current = w;
     $('serverTime').textContent = 'Server time · ' + (w.now || 'Philippine time');
-    if (credentials && guests.length) renderOfficerActivity();
+    if (credentials) renderOfficerActivity();
     for (const [key, live] of [['statusCheckin',w.checkinOpen],['statusCheckout',w.checkoutOpen]]) {
       const el=$(key); el.className = 'pill ' + (live?'open':'closed');
       el.textContent = (key === 'statusCheckin'?'Check-in ':'Check-out ') + (live?'open':'closed');
@@ -159,28 +159,8 @@
     $('officerScanCount').textContent=recorded.toLocaleString();
     $('trackedOfficerCount').textContent=officers.length.toLocaleString();
     $('manualScanCount').textContent=manualCount.toLocaleString();
-    const list=$('officerList');list.replaceChildren();
-    if(!officers.length){
-      const empty=document.createElement('p');empty.className='officer-empty';
-      empty.textContent='No check-ins or check-outs recorded yet.';
-      list.append(empty);return;
-    }
-    for(const officer of officers){
-      const el=document.createElement('div');el.className='officer-person';
-      const identity=document.createElement('div');identity.className='officer-identity';
-      const avatar=document.createElement('span');avatar.className='officer-avatar';avatar.setAttribute('aria-hidden','true');
-      avatar.textContent=officer.name.split(/\s+/).slice(0,2).map(n=>n.charAt(0)).join('').toUpperCase();
-      const info=document.createElement('div');
-      const name=document.createElement('strong');name.textContent=officer.name;
-      if(officer.recent){const tag=document.createElement('span');tag.className='officer-tag';tag.textContent='Recent';name.append(' ',tag);}
-      const last=document.createElement('small');
-      last.textContent=officer.lastPrinted?'Last recorded · '+officer.lastPrinted:'Officer with a recorded scan';
-      info.append(name,last);identity.append(avatar,info);
-      const counts=document.createElement('div');counts.className='officer-counts';
-      const n=document.createElement('strong');n.textContent=officer.total.toLocaleString();
-      const breakdown=document.createElement('span');breakdown.textContent=officer.checkins+' in · '+officer.checkouts+' out';
-      counts.append(n,breakdown);el.append(identity,counts);list.append(el);
-    }
+    activity=officers;
+    renderPresence();
   }
 
   const statusOf = g => g.checkedOut ? 'out' : g.checkedIn ? 'inside' : 'pending';
@@ -237,25 +217,39 @@
     }finally{refreshing=false;btn.disabled=false;btn.textContent='Refresh attendance';}
   }
 
+  /* One officer list: status from their scanner (Active / On break / Offline)
+   * plus how many check-ins and check-outs they recorded. */
+  const officerKey=n=>String(n||'').toLocaleLowerCase().replace(/\s+/g,' ').trim();
   function renderPresence() {
     const root=$('presenceList');root.replaceChildren();
-    if(!presenceSupported) {
-      $('onlineScannerCount').textContent='Backend update needed';
-      const p=document.createElement('p');p.className='officer-empty';
-      p.textContent='Live officer status is not available until Apps Script is updated.';
-      root.append(p);return;
+    const byName=new Map(activity.map(a=>[officerKey(a.name),a]));
+    let rows;
+    if(presenceSupported){
+      $('onlineScannerCount').textContent=presence.filter(o=>o.online&&o.status!=='break').length+' active · '+presence.filter(o=>o.online&&o.status==='break').length+' on break';
+      rows=presence.map(o=>({name:o.name||o.username||'Officer',online:o.online,status:o.online?o.status:'offline',mode:o.mode,act:byName.get(officerKey(o.name))}));
+      // Someone who scanned but is no longer in the Officers tab still shows up.
+      const listed=new Set(rows.map(o=>officerKey(o.name)));
+      activity.filter(a=>!listed.has(officerKey(a.name))).forEach(a=>rows.push({name:a.name,status:'offline',act:a}));
+    } else {
+      $('onlineScannerCount').textContent='Live status needs the new Apps Script';
+      rows=activity.map(a=>({name:a.name,status:'',act:a}));
     }
-    $('onlineScannerCount').textContent=presence.filter(o=>o.online&&o.status!=='break').length+' active · '+presence.filter(o=>o.status==='break').length+' on break · '+presence.length+' total';
-    for(const officer of presence) {
-      const div=document.createElement('div');div.className='presence-item'+(officer.online?' online':'');
-      const name=document.createElement('span');name.className='name';name.textContent=officer.name||officer.username||'Officer';
-      const detail=document.createElement('span');detail.className='detail';
-      // The officer sets Active / On break on their scanner.
-      detail.textContent=!officer.online?'Offline':officer.status==='break'?'On break':'Active · '+(officer.mode==='checkout'?'Check-out':'Check-in');
-      if(officer.online&&officer.status==='break')div.classList.add('break');
-      div.append(name,detail);root.append(div);
+    for(const o of rows){
+      const div=document.createElement('div');
+      div.className='presence-item'+(o.status==='active'?' online':o.status==='break'?' break':'');
+      const left=document.createElement('div');left.className='who';
+      const name=document.createElement('span');name.className='name';name.textContent=o.name;
+      if(o.act&&o.act.recent){const tag=document.createElement('span');tag.className='officer-tag';tag.textContent='Recent';name.append(' ',tag);}
+      const detail=document.createElement('small');detail.className='detail';
+      detail.textContent=(o.status==='active'?'Active · '+(o.mode==='checkout'?'Check-out':'Check-in'):o.status==='break'?'On break':o.status==='offline'?'Offline':'')
+        +(o.act&&o.act.lastPrinted?(o.status?' · ':'')+'last '+o.act.lastPrinted:'');
+      left.append(name,detail);
+      const counts=document.createElement('div');counts.className='officer-counts';
+      const n=document.createElement('strong');n.textContent=o.act?o.act.total.toLocaleString():'0';
+      const b=document.createElement('span');b.textContent=o.act?o.act.checkins+' in · '+o.act.checkouts+' out':'no scans yet';
+      counts.append(n,b);div.append(left,counts);root.append(div);
     }
-    if(!presence.length){const p=document.createElement('p');p.className='officer-empty';p.textContent='No configured scanner officers.';root.append(p);}
+    if(!rows.length){const p=document.createElement('p');p.className='officer-empty';p.textContent=presenceSupported?'No officers in the Officers tab yet.':'No check-ins or check-outs recorded yet.';root.append(p);}
   }
   async function refreshPresence(){
     if(!credentials || !presenceSupported || presenceBusy || document.hidden)return;
@@ -304,7 +298,7 @@
   });
 
   function signOut(){
-    credentials=null;current=null;guests=[];dirty=false;presence=[];dateSupported=false;presenceSupported=false;
+    credentials=null;current=null;guests=[];dirty=false;presence=[];activity=[];dateSupported=false;presenceSupported=false;
     renderPresence();
     $('user').value='';$('pass').value='';$('loginScreen').hidden=false;
     $('dashboard').hidden=true;$('signOut').hidden=true;
@@ -312,8 +306,6 @@
     $('metricEligible').textContent=$('metricArrived').textContent=$('metricInside').textContent=$('metricOut').textContent='—';
     $('activeOfficerCount').textContent='0 recently scanning';$('activeOfficerCount').classList.add('idle');
     $('officerScanCount').textContent=$('trackedOfficerCount').textContent=$('manualScanCount').textContent='0';
-    const empty=document.createElement('p');empty.className='officer-empty';empty.textContent='Sign in to view officer activity';
-    $('officerList').replaceChildren(empty);
     scheduleMessage('');notice($('dashboardError'),'');
     $('user').focus();
   }

@@ -150,7 +150,6 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
 .finder input{min-width:0}
 .person{align-items:start}
 .person small{overflow-wrap:anywhere}
-.officers-panel{order:2}
 @media(max-width:850px){
   .columns{gap:16px}
   .stack{gap:16px}
@@ -255,9 +254,22 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
 @media(min-width:851px) and (max-width:1100px){.schedule-group .windows{grid-template-columns:1fr}}
 @media(max-width:580px){.schedule-groups{gap:10px}.schedule-group{padding:13px}.schedule-group .windows{grid-template-columns:repeat(2,minmax(0,1fr))}
   .schedule-quick{gap:6px}.schedule-actions .button{flex:1 1 145px}.schedule-preview{font-size:.94rem}}
+
+/* Event-day order: numbers, officers, guests; the schedule folds away below. */
+.stack.after{margin-top:20px}
+.schedule-panel>summary{list-style:none;cursor:pointer;display:grid;gap:8px}
+.schedule-panel>summary::-webkit-details-marker{display:none}
+.schedule-panel>summary p{margin:0}
+.sum-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.sum-hint{font:600 .78rem var(--body);color:#8b6650;white-space:nowrap}
+.sum-hint::after{content:" \25BE"}
+.schedule-panel[open] .sum-hint{display:none}
+.presence-item .who{min-width:0;display:grid;gap:3px}
+.presence-item .detail{white-space:normal}
+.presence-item .officer-counts strong{font-size:1.45rem}
 </style>
 <script src="config.js" defer></script>
-<script src="assets/admin.js?v=20261020-status" defer></script>
+<script src="assets/admin.js?v=20261020-layout" defer></script>
 </head>
 <body>
 <header class="top">
@@ -300,12 +312,44 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
     </div>
     <div class="columns">
       <div class="stack">
-        <section class="panel" aria-labelledby="scheduleTitle">
-          <div class="panel-head"><h2 id="scheduleTitle">Scanner schedule</h2><p>Kung imong i-customize ang adlaw ug oras diri, maapektuhan ang tanang scanner sa imong officers.</p></div>
+        <section class="panel officers-panel" aria-labelledby="officersTitle">
+          <div class="panel-head panel-head-split">
+            <div><p class="panel-kicker">Officer overview</p><h2 id="officersTitle">Scanner activity</h2><p>Mamonitor nimo imo mga officers na mag scan ug pilay nag scan ug manual check in.</p></div>
+            <span id="activeOfficerCount" class="live-count" title="Based on scans in the last 15 minutes">0 recently scanning</span>
+          </div>
+          <div class="officer-summary">
+            <div><strong id="officerScanCount">0</strong><span>Recorded actions</span></div>
+            <div><strong id="trackedOfficerCount">0</strong><span>Officers with scans</span></div>
+            <div><strong id="manualScanCount">0</strong><span>Manual check-ins</span></div>
+          </div>
+          <div class="presence-panel">
+            <div class="presence-heading"><strong>Officers</strong><span id="onlineScannerCount">Backend update needed</span></div>
+            <div id="presenceList" class="presence-list" aria-live="polite"><p class="officer-empty">Live status needs the upgraded Apps Script.</p></div>
+            <p class="presence-help">Ang status (Active / On break) ang officer mismo mo-set sa iyang scanner. Offline kung naka-lock or wala na-open sa 2 minutes.</p>
+          </div>
+          <p class="activity-caveat">Ang pasabot sa “recently scanning” kay naa kay na-record nga scan around 15 minutes, dili kay live login status. Ang mga officers lang nga naay na-record nga attendance or scanned ang makita diri.</p>
+        </section>
+      </div>
+      <section class="panel" aria-labelledby="guestsTitle">
+        <div class="panel-head"><h2 id="guestsTitle">Guest status</h2><p>Read-only attendance lookup for paid guests. No emails or ticket references are displayed.</p></div>
+        <div class="panel-content">
+          <div class="finder">
+            <input id="search" type="search" placeholder="Search guest or section" autocomplete="off" aria-label="Search guests">
+            <select id="group" aria-label="Group"><option value="all">All groups</option><option value="student">Students</option><option value="faculty">Faculty</option></select>
+            <select id="state" aria-label="Attendance status"><option value="all">All statuses</option><option value="inside">Inside</option><option value="out">Checked out</option><option value="pending">Not arrived</option></select>
+          </div>
+          <p class="help" id="guestCount">Sign in to view guest attendance.</p>
+          <ul id="guestList" class="list" aria-live="polite"><li class="empty">No data loaded</li></ul>
+        </div>
+        <div class="panel-footer"><span class="help" id="guestUpdate" style="margin:0">—</span><button type="button" class="button secondary" id="refreshButton">Refresh attendance</button></div>
+      </section>
+    </div>
+    <div class="stack after">
+        <details class="panel schedule-panel" id="scheduleBox">
+          <summary class="panel-head"><span class="sum-title"><h2 id="scheduleTitle">Scanner schedule</h2><span class="sum-hint">Tap para i-open</span></span>
+            <span class="statusline"><span id="statusCheckin" class="pill closed">Check-in closed</span><span id="statusCheckout" class="pill closed">Check-out closed</span></span>
+            <p>Kung imong i-customize ang adlaw ug oras diri, maapektuhan ang tanang scanner sa imong officers.</p></summary>
           <div class="panel-content">
-            <p class="section-label">Current access</p>
-            <div class="statusline"><span id="statusCheckin" class="pill closed">Check-in closed</span><span id="statusCheckout" class="pill closed">Check-out closed</span></div>
-            <hr class="divider">
             <form id="scheduleForm" novalidate>
               <p class="section-label">Pili og date ug oras</p>
               <div class="field event-date-field"><label for="eventDate">Adlaw sa scanning</label>
@@ -340,42 +384,8 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
             <p class="help">Ang pag-usab diri para ra sa scanner. Dili mausab ang date sa invitation ug ticket email.</p>
             <p id="scheduleFeedback" class="notice" role="status" hidden></p>
           </div>
-        </section>
-        <section class="panel officers-panel" aria-labelledby="officersTitle">
-          <div class="panel-head panel-head-split">
-            <div><p class="panel-kicker">Officer overview</p><h2 id="officersTitle">Scanner activity</h2><p>Mamonitor nimo imo mga officers na mag scan ug pilay nag scan ug manual check in.</p></div>
-            <span id="activeOfficerCount" class="live-count" title="Based on scans in the last 15 minutes">0 recently scanning</span>
-          </div>
-          <div class="presence-panel">
-            <div class="presence-heading"><strong>Live scanner status</strong><span id="onlineScannerCount">Backend update needed</span></div>
-            <div id="presenceList" class="presence-list" aria-live="polite"><p class="officer-empty">Live status needs the upgraded Apps Script.</p></div>
-            <p class="presence-help">An officer counts as online when their scanner reports in the last 2 minutes.</p>
-          </div>
-          <div class="officer-summary">
-            <div><strong id="officerScanCount">0</strong><span>Recorded actions</span></div>
-            <div><strong id="trackedOfficerCount">0</strong><span>Officers with scans</span></div>
-            <div><strong id="manualScanCount">0</strong><span>Manual check-ins</span></div>
-          </div>
-          <div id="officerList" class="officer-list" aria-live="polite">
-            <p class="officer-empty">Attendance activity will appear after the first guest is checked in.</p>
-          </div>
-          <p class="activity-caveat">Ang pasabot sa “recently scanning” kay naa kay na-record nga scan around 15 minutes, dili kay live login status. Ang mga officers lang nga naay na-record nga attendance or scanned ang makita diri.</p>
-        </section>
+        </details>
         <p class="tiny-reminder"><span aria-hidden="true">✦</span> Officers scan tickets. Admin manages schedules and monitors attendance.</p>
-      </div>
-      <section class="panel" aria-labelledby="guestsTitle">
-        <div class="panel-head"><h2 id="guestsTitle">Guest status</h2><p>Read-only attendance lookup for paid guests. No emails or ticket references are displayed.</p></div>
-        <div class="panel-content">
-          <div class="finder">
-            <input id="search" type="search" placeholder="Search guest or section" autocomplete="off" aria-label="Search guests">
-            <select id="group" aria-label="Group"><option value="all">All groups</option><option value="student">Students</option><option value="faculty">Faculty</option></select>
-            <select id="state" aria-label="Attendance status"><option value="all">All statuses</option><option value="inside">Inside</option><option value="out">Checked out</option><option value="pending">Not arrived</option></select>
-          </div>
-          <p class="help" id="guestCount">Sign in to view guest attendance.</p>
-          <ul id="guestList" class="list" aria-live="polite"><li class="empty">No data loaded</li></ul>
-        </div>
-        <div class="panel-footer"><span class="help" id="guestUpdate" style="margin:0">—</span><button type="button" class="button secondary" id="refreshButton">Refresh attendance</button></div>
-      </section>
     </div>
     <p id="dashboardError" class="notice error" role="alert" hidden></p>
   </section>
