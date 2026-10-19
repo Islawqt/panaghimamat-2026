@@ -269,7 +269,7 @@
   }
   $('statusBtn').addEventListener('click', () => { onBreak = !onBreak; drawStatus(); void heartbeat(); });
   const wake = () => { if (officer && $('sCam').hidden === false && !document.hidden) void probeCapabilities(); };
-  setInterval(heartbeat, 45000);
+  setInterval(heartbeat, 30000);
   setInterval(wake, 120000);
 
   /* ---------- Check-in ---------- */

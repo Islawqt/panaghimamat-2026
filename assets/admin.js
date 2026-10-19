@@ -7,7 +7,7 @@
   const API = (window.PANAGHIMAMAT_CONFIG || {}).sheetWebAppUrl || '';
   const keys = ['checkinOpens', 'checkinCloses', 'checkoutOpens', 'checkoutCloses'];
   const defaults = {checkinOpens:'12:45', checkinCloses:'17:00', checkoutOpens:'17:00', checkoutCloses:'17:30'};
-  let credentials = null, current = null, guests = [], dirty = false, refreshing = false;
+  let adminKey = '', credentials = null, current = null, guests = [], dirty = false, refreshing = false;
   let dateSupported = false, presenceSupported = false, presenceBusy = false, presence = [], activity = [];
   const session = () => ({user:credentials.user, pass:credentials.pass});
   const notice = (node, message, type = '') => {
@@ -139,6 +139,7 @@
       const action=parseStamp(stamp);
       if(!action)return;
       const key=action.officer.toLocaleLowerCase().replace(/\s+/g,' ').trim();
+      if(adminKey&&key===adminKey)return; // the President/Admin is not counted as a scanner officer
       if(!people.has(key))people.set(key,{name:action.officer,checkins:0,checkouts:0,manual:0,last:0,lastPrinted:''});
       const row=people.get(key);
       if(kind==='in')row.checkins++;else row.checkouts++;
@@ -222,17 +223,20 @@
   const officerKey=n=>String(n||'').toLocaleLowerCase().replace(/\s+/g,' ').trim();
   function renderPresence() {
     const root=$('presenceList');root.replaceChildren();
-    const byName=new Map(activity.map(a=>[officerKey(a.name),a]));
+    // The President/Admin watches from here, so they are not listed with the scanner officers.
+    const notAdmin=o=>!adminKey||officerKey(o.name)!==adminKey;
+    const byName=new Map(activity.filter(notAdmin).map(a=>[officerKey(a.name),a]));
     let rows;
     if(presenceSupported){
-      $('onlineScannerCount').textContent=presence.filter(o=>o.online&&o.status!=='break').length+' active · '+presence.filter(o=>o.online&&o.status==='break').length+' on break';
-      rows=presence.map(o=>({name:o.name||o.username||'Officer',online:o.online,status:o.online?o.status:'offline',mode:o.mode,act:byName.get(officerKey(o.name))}));
+      const team=presence.filter(notAdmin);
+      $('onlineScannerCount').textContent=team.filter(o=>o.online&&o.status!=='break').length+' active · '+team.filter(o=>o.online&&o.status==='break').length+' on break';
+      rows=presence.filter(notAdmin).map(o=>({name:o.name||o.username||'Officer',online:o.online,status:o.online?o.status:'offline',mode:o.mode,act:byName.get(officerKey(o.name))}));
       // Someone who scanned but is no longer in the Officers tab still shows up.
       const listed=new Set(rows.map(o=>officerKey(o.name)));
-      activity.filter(a=>!listed.has(officerKey(a.name))).forEach(a=>rows.push({name:a.name,status:'offline',act:a}));
+      activity.filter(notAdmin).filter(a=>!listed.has(officerKey(a.name))).forEach(a=>rows.push({name:a.name,status:'offline',act:a}));
     } else {
       $('onlineScannerCount').textContent='Live status needs the new Apps Script';
-      rows=activity.map(a=>({name:a.name,status:'',act:a}));
+      rows=activity.filter(notAdmin).map(a=>({name:a.name,status:'',act:a}));
     }
     for(const o of rows){
       const div=document.createElement('div');
@@ -286,6 +290,7 @@
       credentials={user,pass};
       $('pass').value='';
       $('adminName').textContent=d.officer||'Admin';
+      adminKey=String(d.officer||'').toLocaleLowerCase().replace(/\s+/g,' ').trim();
       $('topName').textContent='Restricted · Admin access';
       $('signOut').hidden=false;
       $('loginScreen').hidden=true;
@@ -298,7 +303,7 @@
   });
 
   function signOut(){
-    credentials=null;current=null;guests=[];dirty=false;presence=[];activity=[];dateSupported=false;presenceSupported=false;
+    credentials=null;adminKey='';current=null;guests=[];dirty=false;presence=[];activity=[];dateSupported=false;presenceSupported=false;
     renderPresence();
     $('user').value='';$('pass').value='';$('loginScreen').hidden=false;
     $('dashboard').hidden=true;$('signOut').hidden=true;
@@ -383,6 +388,8 @@
     if (credentials && !document.hidden && !refreshing && !dirty) refreshAttendance();
   },120000);
   setInterval(()=>{if(credentials && !document.hidden) void probePresence();},60000);
+  // Officer status (Active / On break / Offline) refreshes every 15 seconds.
+  setInterval(()=>{if(credentials && !document.hidden) void refreshPresence();},15000);
   window.addEventListener('beforeunload',e=>{
     if(dirty && credentials){e.preventDefault();e.returnValue='';}
   });
