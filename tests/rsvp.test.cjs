@@ -56,15 +56,16 @@ function backend({ legacy = false } = {}) {
   // The President's officer accounts: rows 6 to 10 of the Officers tab.
   const officers = sheet(false, [[], [], [], [], ['Name', 'Username', 'Password'], ['Ana Cruz', 'ana', 'pw-ana'], ['Ben', 'ben', 'pw-ben'], ['', '', ''], ['', '', ''], ['', '', '']]);
   const sheets = { [legacy ? 'Responses' : 'Students']: students, Faculty: faculty, Officers: officers };
+  const props = {};
   const context = {
-    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k === 'OFFICER_CODE' ? 'SSC2026' : 'mock-id') }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => (k in props ? props[k] : /_ID$/.test(k) ? 'mock-id' : null), setProperty: (k, v) => { props[k] = v; } }) },
     CacheService: { getScriptCache: () => ({ get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v) }) },
     SpreadsheetApp: { openById: () => ({ getSheetByName: (name) => sheets[name], insertSheet: (name) => (sheets[name] = sheet(false, [])) }), flush: () => { assert.ok(locked); flushes++; } },
     LockService: { getScriptLock: () => ({ tryLock: () => { if (locked) return false; locked = true; return true; }, releaseLock: () => { locked = false; } }) },
     Utilities: {
       getUuid: () => crypto.randomUUID(), DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
       computeDigest: (algorithm, value) => [...crypto.createHash(algorithm).update(value).digest()],
-      base64Decode: (s) => [...Buffer.from(s, 'base64')], formatDate: () => 'Oct 23, 1:05 PM',
+      base64Decode: (s) => [...Buffer.from(s, 'base64')], formatDate: (d, tz, f) => (/^yyyy-MM-dd HH:mm/.test(f) ? '2026-10-23 13:05' + (/ss$/.test(f) ? ':00' : '') : 'Oct 23, 1:05 PM'), // event day, check-in open
       newBlob: (bytes, type, name) => ({ bytes, type, name, copyBlob() { return { ...this }; } })
     },
     MailApp: {
@@ -81,7 +82,7 @@ function backend({ legacy = false } = {}) {
   vm.createContext(context);
   vm.runInContext(readFileSync(join(backendDir, 'QR.gs'), 'utf8'), context);
   vm.runInContext(readFileSync(join(backendDir, 'Code.gs'), 'utf8'), context);
-  return { sheets, attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
+  return { sheets, attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, checkout: context.checkout_, heartbeat: context.scannerHeartbeat_, presence: context.officerPresence_, props, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
 
@@ -435,4 +436,32 @@ test('officers sign in with accounts from the Officers tab; attendance tabs log 
   b.checkin({ user: 'ana', pass: 'pw-ana', ref: s1 });
   assert.equal(st.rows.filter((r) => r && r[1] === 'Stu Dent').length, 2, 'a fresh row after the real owner is scanned');
   assert.equal(b.locked, false);
+});
+
+test('a wrong check-out can be undone; officers set Active / On break for the Admin page', () => {
+  const b = backend();
+  b.sheets.Officers.rows[5][3] = 'Admin'; // Ana is the President
+  b.props.PH26_ATTENDANCE_SCHEDULE_2026_10_23 = JSON.stringify({ checkinOpens: '12:00', checkinCloses: '17:00', checkoutOpens: '13:00', checkoutCloses: '17:30' });
+  const id = b.save(reply('student', { fullName: 'Out Guest', email: 'o@x.com' }));
+  b.students.rows[5][b.students.rows[4].indexOf('Payment')] = 'Paid ✓';
+  const ana = { user: 'ana', pass: 'pw-ana' };
+  assert.equal(b.checkin({ ...ana, ref: id }).result, 'admitted');
+  assert.equal(b.checkout({ ...ana, ref: id }).result, 'departed');
+  assert.equal(b.undo({ ...ana, ref: id }).ok, false, 'check-in cannot be undone while checked out');
+  const u = b.undo({ ...ana, ref: id, what: 'checkout' });
+  assert.equal(u.ok, true, JSON.stringify(u));
+  assert.equal(b.students.rows[5][b.students.rows[4].indexOf('Checked out')], '');
+  const log = b.sheets['Attendance · Students'];
+  assert.equal(log.rows.find((r) => r && r[1] === 'Out Guest')[5], 'Present');
+  assert.equal(b.checkout({ ...ana, ref: id }).result, 'departed', 'can check out again after the undo');
+
+  const hb = b.heartbeat({ user: 'ben', pass: 'pw-ben', status: 'break' });
+  assert.equal(hb.ok, true, JSON.stringify(hb));
+  let p = b.presence(ana);
+  assert.equal(p.ok, true, JSON.stringify(p));
+  assert.equal(p.officers.find((o) => o.username === 'ben').status, 'break');
+  b.heartbeat({ user: 'ben', pass: 'pw-ben', status: 'offline' });
+  p = b.presence(ana);
+  assert.equal(p.officers.find((o) => o.username === 'ben').online, false);
+  assert.equal(b.presence({ user: 'ben', pass: 'pw-ben' }).ok, false, 'only the Admin sees officer status');
 });

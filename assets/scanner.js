@@ -14,7 +14,7 @@
   const auth = () => ({ user, pass });
   let lastRef = '', guests = [], listView = 'out', listGroup = 'student';
   let mode = 'checkin', windowStatus = null, checkoutEnabled = false;
-  let presenceSupported = false, heartbeatBusy = false, toastTimer = null, shownAt = 0;
+  let presenceSupported = false, heartbeatBusy = false, onBreak = false, lastKind = '';
   let qrGoneAt = 0;
   const allowed = (m) => !checkoutEnabled || !!(windowStatus && (m === 'checkout' ? windowStatus.checkoutOpen : windowStatus.checkinOpen));
   function switchMode(m) {
@@ -45,7 +45,7 @@
     if ($('sStart').hidden && checkoutEnabled)
       fetch(API + '?action=ping', { credentials: 'omit', cache: 'no-store' })
         .then(r => r.json()).then(d => updateWindow(d.window)).catch(() => {});
-  }, 10000);
+  }, 60000);
   let stream = null, facing = 'environment', scanning = false, busy = false, lastText = '', lastAt = 0, detector = null, timer = null;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -99,9 +99,11 @@
   if (pass) $('officerPass').placeholder = 'Saved on this phone';
 
   $('lockBtn').addEventListener('click', () => {
+    // Tell the Admin page this scanner is off before the password is forgotten.
+    if (presenceSupported && officer) post({ action: 'scannerHeartbeat', ...auth(), mode, status: 'offline' }, 8000).catch(() => {});
     stopCamera();
     store.set('ph26-officer-pass', ''); pass = ''; officer = '';
-    hideResult(); presenceSupported = false; lastText = ''; qrGoneAt = 0;
+    hideResult(); presenceSupported = false; lastText = ''; qrGoneAt = 0; onBreak = false; drawStatus();
     $('attendanceModes').hidden = true;
     $('officerPass').value = ''; $('officerPass').placeholder = 'From the SSC President';
     $('sCam').hidden = true; $('sList').hidden = true; $('sStart').hidden = false;
@@ -186,7 +188,7 @@
   }
   async function loop() {
     if (!scanning) return;
-    if (!busy) {
+    if (!busy && $('result').hidden) {
       const hit = await readFrame();
       if (!scanning) return;
       const text = hit ? String(hit.text || '').trim() : '';
@@ -197,10 +199,9 @@
         qrGoneAt = 0;
         // A ticket held in front of the lens is one scan, not dozens of requests.
         // Move it away before presenting the same QR again.
-        if (text !== lastText && ($('result').hidden || now - shownAt > 1600)) {
-          hideResult();
+        if (text !== lastText) {
           lastText = text; lastAt = now;
-          $('lock').classList.add('locked');
+          snapQR(hit.pts);
           void check(text);
         }
       } else if (lastText) {
@@ -210,13 +211,34 @@
     }
     timer = setTimeout(loop, 110);
   }
-  function hideResult() {
-    clearTimeout(toastTimer);
-    toastTimer = null;
-    $('result').hidden = true;
-    releaseLock();
+  /* Freeze and zoom on the QR while the Sheet answers: the camera "captures" the ticket. */
+  function snapQR(pts) {
+    const v = $('video'), c = $('snap');
+    $('lock').classList.add('locked');
+    try {
+      const xs = (pts || []).map((q) => q.x), ys = (pts || []).map((q) => q.y);
+      if (xs.length < 4 || !v.videoWidth) throw 0;
+      const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+      let side = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) * 1.35;
+      side = Math.min(side, v.videoWidth, v.videoHeight);
+      const sx = Math.max(0, Math.min(v.videoWidth - side, cx - side / 2)), sy = Math.max(0, Math.min(v.videoHeight - side, cy - side / 2));
+      c.width = c.height = 600;
+      c.getContext('2d').drawImage(v, sx, sy, side, side, 0, 0, 600, 600);
+      releaseLock();
+      $('finder').classList.add('snapped');
+      c.hidden = false;
+    } catch {}
+    v.pause();
   }
-  function resumeCamera() { releaseLock(); }
+  function hideResult() {
+    $('result').hidden = true;
+    $('snap').hidden = true;
+    $('finder').classList.remove('snapped');
+    releaseLock();
+    const v = $('video');
+    if (stream && v.paused) v.play().catch(() => {});
+  }
+  function resumeCamera() { hideResult(); }
   // Keep the Google script awake while the scanner is open, so the first scan is not slow.
   // Only use new authenticated heartbeat actions once the deployed backend
   // advertises support. An old Apps Script would otherwise treat an unknown
@@ -225,7 +247,7 @@
     if (!presenceSupported || heartbeatBusy || !officer || !scanning || document.hidden || $('sCam').hidden) return;
     heartbeatBusy = true;
     try {
-      const d = await post({ action: 'scannerHeartbeat', ...auth(), mode }, 12000);
+      const d = await post({ action: 'scannerHeartbeat', ...auth(), mode, status: onBreak ? 'break' : 'active' }, 12000);
       if (d.ok && d.window) updateWindow(d.window);
     } catch { /* connectivity may be interrupted; status expires automatically */ }
     finally { heartbeatBusy = false; }
@@ -235,10 +257,17 @@
       const response = await fetch(API + '?action=ping', { credentials:'omit',cache:'no-store' });
       const data = await response.json();
       presenceSupported = !!(data.features && data.features.officerPresence);
+      $('statusBtn').hidden = !presenceSupported;
       if (data.window) updateWindow(data.window);
       if (presenceSupported) void heartbeat();
     } catch {}
   }
+  // Officers set their own status (Active / On break); the Admin page shows it.
+  function drawStatus() {
+    $('statusBtn').classList.toggle('away', onBreak);
+    $('statusBtn').lastElementChild.textContent = onBreak ? 'On break · tap when back' : 'Active · tap to take a break';
+  }
+  $('statusBtn').addEventListener('click', () => { onBreak = !onBreak; drawStatus(); void heartbeat(); });
   const wake = () => { if (officer && $('sCam').hidden === false && !document.hidden) void probeCapabilities(); };
   setInterval(heartbeat, 45000);
   setInterval(wake, 120000);
@@ -267,17 +296,17 @@
     $('rIcon').textContent = icon;
     $('rVerdict').textContent = verdict;
     const g = d.guest || {};
-    lastRef = kind === 'admitted' ? (d.ref || '') : '';
+    lastRef = kind === 'admitted' || kind === 'departed' ? (d.ref || '') : '';
+    lastKind = lastRef ? kind : '';
     $('rOwner').hidden = kind !== 'admitted';
     $('undoBtn').hidden = !lastRef;
+    $('undoBtn').textContent = kind === 'departed' ? 'Undo this check-out' : 'Undo this check-in';
     $('rName').textContent = g.name || '';
     $('rMeta').textContent = g.name ? (g.group === 'faculty' ? 'Faculty' : (g.section ? `Student · ${g.section}` : 'Student')) : '';
     $('rDetail').textContent = d.message || '';
     r.hidden = false;
-    shownAt = Date.now();
     feedback(kind === 'admitted' || kind === 'departed');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(hideResult, kind === 'admitted' ? 8500 : (kind === 'departed' ? 5400 : 3500));
+    $('nextBtn').focus();
   }
   async function check(text) {
     busy = true; $('busy').hidden = false;
@@ -299,17 +328,19 @@
       if ($('result').hidden) resumeCamera();
     }
   }
+  $('nextBtn').addEventListener('click', hideResult);
   $('undoBtn').addEventListener('click', async () => {
     if (!lastRef) return;
+    const out = lastKind === 'departed';
     $('undoBtn').disabled = true; $('undoBtn').textContent = 'Undoing…';
     try {
-      const d = await post({ action: 'undo', ...auth(), ref: lastRef });
+      const d = await post({ action: 'undo', ...auth(), ref: lastRef, what: out ? 'checkout' : 'checkin' });
       if (!d.ok) { $('rDetail').textContent = d.message || 'Could not undo.'; return; }
       setCount(d.stats);
-      show('error', { message: 'Check-in undone. The ticket owner can be scanned when they are here.' });
+      show('error', { message: out ? 'Check-out undone. The guest is inside again.' : 'Check-in undone. The ticket owner can be scanned when they are here.' });
       $('rVerdict').textContent = 'Undone';
     } catch { $('rDetail').textContent = 'No signal. Try again.'; }
-    finally { $('undoBtn').disabled = false; $('undoBtn').textContent = 'Undo this check-in'; }
+    finally { $('undoBtn').disabled = false; }
   });
 
   /* ---------- Attendance list ---------- */
@@ -320,7 +351,8 @@
     const q = norm($('listSearch').value).trim();
     const group = guests.filter((g) => g.group === listGroup);
     const inside = group.filter((g) => g.checkedIn && !g.checkedOut).length;
-    $('nIn').textContent = inside; $('nOut').textContent = group.length - inside; $('nAll').textContent = group.length;
+    const notArrived = group.filter((g) => !g.checkedIn).length;
+    $('nIn').textContent = inside; $('nOut').textContent = notArrived; $('nAll').textContent = group.length;
     ['student', 'faculty'].forEach((k) => {
       const all = guests.filter((g) => g.group === k);
       $(k === 'student' ? 'gStu' : 'gFac').textContent = `${all.filter((g) => g.checkedIn && !g.checkedOut).length}/${all.length}`;
@@ -330,7 +362,7 @@
       && (!q || norm(g.name + ' ' + g.section).includes(q)));
     if (!rows.length) {
       const li = document.createElement('li'); li.className = 'empty';
-      li.textContent = q ? 'No one matches that search.' : listView === 'in' ? 'No one is inside yet.' : listView === 'out' ? 'Everyone is inside!' : 'No paid guests yet.';
+      li.textContent = q ? 'No one matches that search.' : listView === 'in' ? 'No one is inside yet.' : listView === 'out' ? 'Everyone has arrived!' : 'No paid guests yet.';
       return $('guestList').replaceChildren(li);
     }
     $('guestList').replaceChildren(...rows.map((g) => {
@@ -345,23 +377,25 @@
         info.append(w);
       }
       const btn = document.createElement('button'); btn.type = 'button';
-      const eligible = mode === 'checkout' ? !!g.checkedIn && !g.checkedOut : !g.checkedIn;
-      btn.textContent = mode === 'checkout'
-        ? (g.checkedOut ? 'Already out' : (g.checkedIn ? 'Check out' : 'Not inside'))
-        : (g.checkedIn ? 'Already in' : 'Check in');
-      btn.disabled = !eligible || !allowed(mode);
-      if (eligible) btn.className = 'go';
+      // Not arrived → Check in. Inside → Check out (check-out mode) or Undo. Checked out → Undo check-out.
+      const act = !g.checkedIn ? 'checkin' : g.checkedOut ? 'undoOut' : mode === 'checkout' ? 'checkout' : 'undoIn';
+      const label = { checkin: 'Check in', checkout: 'Check out', undoIn: 'Undo', undoOut: 'Undo out' }[act];
+      btn.textContent = label;
+      btn.disabled = (act === 'checkin' || act === 'checkout') && !allowed(act);
+      if (act === 'checkin' || act === 'checkout') btn.className = 'go';
       // Two taps so a mis-tap never changes attendance.
       let armed = 0;
       btn.addEventListener('click', async () => {
-        if (!armed) { armed = setTimeout(() => { armed = 0; btn.className = g.checkedIn ? '' : 'go'; btn.textContent = g.checkedIn ? 'Undo' : 'Check in'; }, 3000); btn.className = 'sure'; btn.textContent = 'Tap to confirm'; return; }
+        if (!armed) { armed = setTimeout(() => { armed = 0; btn.className = /^(checkin|checkout)$/.test(act) ? 'go' : ''; btn.textContent = label; }, 3000); btn.className = 'sure'; btn.textContent = 'Tap to confirm'; return; }
         clearTimeout(armed); armed = 0;
         btn.disabled = true; btn.textContent = '…';
         try {
-          const d = await post({ action: mode === 'checkout' ? 'checkout' : 'checkin', ...auth(), ref: g.ref, manual: true });
+          const d = act === 'checkin' || act === 'checkout'
+            ? await post({ action: act, ...auth(), ref: g.ref, manual: true })
+            : await post({ action: 'undo', ...auth(), ref: g.ref, what: act === 'undoOut' ? 'checkout' : 'checkin' });
           if (!d.ok) { listErr(d.message || 'Could not save. Try again.'); return loadList(); }
           setCount(d.stats);
-          feedback(true);
+          feedback(act === 'checkin' || act === 'checkout');
           await loadList();
         } catch { listErr('No signal. Try again.'); btn.disabled = false; }
       });

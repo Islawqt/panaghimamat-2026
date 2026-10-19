@@ -6,7 +6,7 @@
   const $ = id => document.getElementById(id);
   const API = (window.PANAGHIMAMAT_CONFIG || {}).sheetWebAppUrl || '';
   const keys = ['checkinOpens', 'checkinCloses', 'checkoutOpens', 'checkoutCloses'];
-  const defaults = {checkinOpens:'12:45', checkinCloses:'17:00', checkoutOpens:'17:00', checkoutCloses:'23:59'};
+  const defaults = {checkinOpens:'12:45', checkinCloses:'17:00', checkoutOpens:'17:00', checkoutCloses:'17:30'};
   let credentials = null, current = null, guests = [], dirty = false, refreshing = false;
   let dateSupported = false, presenceSupported = false, presenceBusy = false, presence = [];
   const session = () => ({user:credentials.user, pass:credentials.pass});
@@ -245,12 +245,14 @@
       p.textContent='Live officer status is not available until Apps Script is updated.';
       root.append(p);return;
     }
-    $('onlineScannerCount').textContent=presence.filter(o=>o.online).length+' / '+presence.length+' online';
+    $('onlineScannerCount').textContent=presence.filter(o=>o.online&&o.status!=='break').length+' active · '+presence.filter(o=>o.status==='break').length+' on break · '+presence.length+' total';
     for(const officer of presence) {
       const div=document.createElement('div');div.className='presence-item'+(officer.online?' online':'');
       const name=document.createElement('span');name.className='name';name.textContent=officer.name||officer.username||'Officer';
       const detail=document.createElement('span');detail.className='detail';
-      detail.textContent=officer.online?'Online · '+(officer.mode==='checkout'?'Check-out':'Check-in'):'Offline';
+      // The officer sets Active / On break on their scanner.
+      detail.textContent=!officer.online?'Offline':officer.status==='break'?'On break':'Active · '+(officer.mode==='checkout'?'Check-out':'Check-in');
+      if(officer.online&&officer.status==='break')div.classList.add('break');
       div.append(name,detail);root.append(div);
     }
     if(!presence.length){const p=document.createElement('p');p.className='officer-empty';p.textContent='No configured scanner officers.';root.append(p);}

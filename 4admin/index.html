@@ -224,6 +224,7 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
 .presence-item .name{font:600 .95rem var(--body);min-width:0}
 .presence-item .name::before{content:"";display:inline-block;width:8px;height:8px;background:#aea399;border-radius:50%;margin-right:8px}
 .presence-item.online .name::before{background:#24835a;box-shadow:0 0 0 3px #e5f2eb}
+.presence-item.break .name::before{background:#d0902a;box-shadow:0 0 0 3px #f6ead2}
 .presence-item .detail{font:.8rem var(--body);color:var(--muted);white-space:nowrap}
 .presence-item.online .detail{color:#226647}
 .presence-help{margin:12px 0 0;font:.84rem/1.3 var(--body);color:var(--muted)}
@@ -256,7 +257,7 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
   .schedule-quick{gap:6px}.schedule-actions .button{flex:1 1 145px}.schedule-preview{font-size:.94rem}}
 </style>
 <script src="config.js" defer></script>
-<script src="assets/admin.js?v=20261020-easy-hours" defer></script>
+<script src="assets/admin.js?v=20261020-status" defer></script>
 </head>
 <body>
 <header class="top">
