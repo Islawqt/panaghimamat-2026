@@ -13,6 +13,87 @@
   let user = store.get('ph26-officer-user'), pass = store.get('ph26-officer-pass'), officer = '';
   const auth = () => ({ user, pass });
   let lastRef = '', guests = [], listView = 'out', listGroup = 'student';
+  let mode = 'checkin', windowStatus = null, checkoutEnabled = false, admin = false, scheduleDirty = false;
+  const allowed = (m) => !checkoutEnabled || !!(windowStatus && (m === 'checkout' ? windowStatus.checkoutOpen : windowStatus.checkinOpen));
+  function switchMode(m) {
+    if (!allowed(m) || (m === 'checkout' && !checkoutEnabled)) return;
+    mode = m; lastText = ''; lastAt = 0;
+    $('chooseCheckin').setAttribute('aria-pressed', String(m === 'checkin'));
+    $('chooseCheckout').setAttribute('aria-pressed', String(m === 'checkout'));
+    $('manualAction').textContent = m === 'checkout' ? 'Check out' : 'Check in';
+    $('nextBtn').textContent = m === 'checkout' ? 'Next departure' : 'Scan next guest';
+    drawList();
+  }
+  function updateWindow(w) {
+    if (!w || typeof w.checkinOpen !== 'boolean' || typeof w.checkoutOpen !== 'boolean') return;
+    windowStatus = w; checkoutEnabled = true;
+    $('attendanceModes').hidden = false;
+    $('chooseCheckin').disabled = !w.checkinOpen;
+    $('chooseCheckout').disabled = !w.checkoutOpen;
+    $('attendanceWindow').textContent = w.checkoutOpen
+      ? (w.checkinOpen ? 'Both modes open · Check-in closes ' + w.checkinCloses + ' PH time' : 'Check-out open · Check-in closed')
+      : (w.checkinOpen ? 'Check-in open · Check-out starts ' + w.checkoutOpens + ' PH time' :
+        'Check-in ' + w.checkinOpens + '–' + w.checkinCloses + ' · Check-out ' + w.checkoutOpens + '–' + w.checkoutCloses + ' (PH time)');
+    $('presidentExtension').hidden = !admin;
+    $('extendCheckin').hidden = !admin || !w.canExtend;
+    if (!scheduleDirty) {
+      $('adminInStart').value = w.checkinOpens || '12:45';
+      $('adminInEnd').value = w.checkinCloses || '17:00';
+      $('adminOutStart').value = w.checkoutOpens || '17:00';
+      $('adminOutEnd').value = w.checkoutCloses || '23:59';
+    }
+    if (!allowed(mode) && allowed(mode === 'checkin' ? 'checkout' : 'checkin')) switchMode(mode === 'checkin' ? 'checkout' : 'checkin');
+  }
+  $('chooseCheckin').addEventListener('click', () => switchMode('checkin'));
+  $('chooseCheckout').addEventListener('click', () => switchMode('checkout'));
+  // Custom scheduling is visible only to Admin; the server re-verifies role.
+  ['adminInStart','adminInEnd','adminOutStart','adminOutEnd'].forEach(id => {
+    $(id).addEventListener('input', () => { scheduleDirty = true; });
+  });
+  $('adminScheduleForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!admin) return;
+    const schedule = {
+      checkinOpens: $('adminInStart').value, checkinCloses: $('adminInEnd').value,
+      checkoutOpens: $('adminOutStart').value, checkoutCloses: $('adminOutEnd').value
+    };
+    const err = $('adminScheduleMessage');
+    if (!Object.values(schedule).every(v => /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(v))
+      || schedule.checkinOpens >= schedule.checkinCloses
+      || schedule.checkoutOpens >= schedule.checkoutCloses
+      || schedule.checkoutOpens < schedule.checkinOpens) {
+      err.textContent = 'Check the times. Each opening must precede its closing, and check-out cannot open before check-in.';
+      return;
+    }
+    const save = $('saveAdminTimes'); save.disabled = true;
+    err.textContent = 'Saving scanner schedule…';
+    try {
+      const d = await post({ action: 'setAttendanceSchedule', ...auth(), schedule });
+      if (!d.ok) { err.textContent = d.message || 'Unable to update schedule.'; return; }
+      scheduleDirty = false;
+      updateWindow(d.window);
+      err.textContent = 'Schedule saved. New times apply immediately to all officers (Philippine time).';
+    } catch { err.textContent = 'Connection failed; schedule not confirmed. Check the server before retrying.'; }
+    finally { save.disabled = false; }
+  });
+  $('extendCheckin').addEventListener('click', async () => {
+    if (!admin || !windowStatus?.canExtend) return;
+    if (!confirm('Extend the current check-in closing time by 30 minutes? This is a one-time action.')) return;
+    $('extendCheckin').disabled = true;
+    try {
+      const r = await post({ action: 'extendCheckin', ...auth() });
+      if (!r.ok) return alert(r.message || 'Unable to extend check-in.');
+      updateWindow(r.window);
+      alert('Check-in extended until ' + r.window.checkinCloses + ' (Philippine time).');
+    } catch { alert('Unable to reach the backend. No extension confirmed.'); }
+    finally { $('extendCheckin').disabled = false; }
+  });
+  // Read-only time refresh; server-side time gates are authoritative.
+  setInterval(() => {
+    if ($('sStart').hidden && checkoutEnabled)
+      fetch(API + '?action=ping', { credentials: 'omit', cache: 'no-store' })
+        .then(r => r.json()).then(d => updateWindow(d.window)).catch(() => {});
+  }, 10000);
   let stream = null, facing = 'environment', scanning = false, busy = false, lastText = '', lastAt = 0, detector = null, timer = null;
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -31,7 +112,7 @@
   const showErr = (m) => { $('startErr').textContent = m; $('startErr').hidden = !m; };
   function setCount(stats) {
     if (!stats) return;
-    $('countPill').textContent = `${stats.inside} / ${stats.paid} inside`;
+    $('countPill').textContent = `${stats.inside} inside · ${stats.checkedOut || 0} out`;
   }
 
   /* ---------- Sign in ---------- */
@@ -48,6 +129,8 @@
       const d = await post({ action: 'officer', user: u, pass: p });
       if (!d.ok) { store.set('ph26-officer-pass', ''); pass = ''; return showErr(d.message || 'Wrong username or password.'); }
       user = u; pass = p; officer = d.officer || u;
+      admin = d.role === 'admin' || d.role === 'president';
+      updateWindow(d.window);
       store.set('ph26-officer-user', u); store.set('ph26-officer-pass', p);
       $('officerPass').value = '';
       setCount(d.stats);
@@ -66,7 +149,8 @@
 
   $('lockBtn').addEventListener('click', () => {
     stopCamera();
-    store.set('ph26-officer-pass', ''); pass = ''; officer = '';
+    store.set('ph26-officer-pass', ''); pass = ''; officer = ''; admin = false; scheduleDirty = false;
+    $('attendanceModes').hidden = true; $('presidentExtension').hidden = true;
     $('officerPass').value = ''; $('officerPass').placeholder = 'From the SSC President';
     $('sCam').hidden = true; $('sList').hidden = true; $('sStart').hidden = false;
   });
@@ -184,7 +268,9 @@
     } catch {}
   }
   const VIEW = {
-    admitted: ['✓', 'Welcome!'], used: ['!', 'Already used'], unpaid: ['✕', 'Not paid yet'],
+    admitted: ['✓', 'Checked in!'], departed: ['✓', 'Checked out!'],
+    used: ['!', 'Already checked in'], already_out: ['!', 'Already checked out'],
+    not_in: ['✕', 'Not checked in'], unpaid: ['✕', 'Not paid yet'],
     declined: ['✕', 'Not attending'], invalid: ['?', 'Not a valid ticket'], error: ['!', 'Try again']
   };
   function show(kind, d = {}) {
@@ -201,13 +287,16 @@
     $('rMeta').textContent = g.name ? (g.group === 'faculty' ? 'Faculty' : (g.section ? `Student · ${g.section}` : 'Student')) : '';
     $('rDetail').textContent = d.message || '';
     r.hidden = false;
-    feedback(kind === 'admitted');
+    feedback(kind === 'admitted' || kind === 'departed');
     $('nextBtn').focus();
   }
   async function check(text) {
     busy = true; $('busy').hidden = false;
     try {
-      const d = await post({ action: 'checkin', ...auth(), ref: text }, 15000);
+      if (checkoutEnabled && !allowed(mode)) return show('error', { message: mode === 'checkout'
+        ? 'Check-out is outside its scheduled hours (Philippine time).'
+        : 'Check-in is outside its scheduled hours (Philippine time).' });
+      const d = await post({ action: mode === 'checkout' && checkoutEnabled ? 'checkout' : 'checkin', ...auth(), ref: text }, 15000);
       if (!d.ok) {
         if (/password|sign in|officer accounts/i.test(d.message || '')) { $('lockBtn').click(); showErr(d.message); return; }
         return show('error', { message: d.message });
@@ -245,29 +334,38 @@
   function drawList() {
     const q = norm($('listSearch').value).trim();
     const group = guests.filter((g) => g.group === listGroup);
-    const inside = group.filter((g) => g.checkedIn).length;
+    const inside = group.filter((g) => g.checkedIn && !g.checkedOut).length;
     $('nIn').textContent = inside; $('nOut').textContent = group.length - inside; $('nAll').textContent = group.length;
     ['student', 'faculty'].forEach((k) => {
       const all = guests.filter((g) => g.group === k);
-      $(k === 'student' ? 'gStu' : 'gFac').textContent = `${all.filter((g) => g.checkedIn).length}/${all.length}`;
+      $(k === 'student' ? 'gStu' : 'gFac').textContent = `${all.filter((g) => g.checkedIn && !g.checkedOut).length}/${all.length}`;
     });
     $('listCount').textContent = `${inside} / ${group.length} inside`;
-    const rows = group.filter((g) => (listView === 'all' || (listView === 'in') === !!g.checkedIn) && (!q || norm(g.name + ' ' + g.section).includes(q)));
+    const rows = group.filter((g) => (listView === 'all' || (listView === 'in' ? !!g.checkedIn && !g.checkedOut : !g.checkedIn))
+      && (!q || norm(g.name + ' ' + g.section).includes(q)));
     if (!rows.length) {
       const li = document.createElement('li'); li.className = 'empty';
       li.textContent = q ? 'No one matches that search.' : listView === 'in' ? 'No one is inside yet.' : listView === 'out' ? 'Everyone is inside!' : 'No paid guests yet.';
       return $('guestList').replaceChildren(li);
     }
     $('guestList').replaceChildren(...rows.map((g) => {
-      const li = document.createElement('li'); li.className = 'guest' + (g.checkedIn ? ' in' : '');
+      const li = document.createElement('li'); li.className = 'guest' + (g.checkedIn && !g.checkedOut ? ' in' : '');
       const info = document.createElement('div');
       const name = document.createElement('strong'); name.textContent = g.name;
       const meta = document.createElement('small'); meta.textContent = g.group === 'faculty' ? 'Faculty' : (g.section || 'Student');
       info.append(name, meta);
-      if (g.checkedIn) { const w = document.createElement('small'); w.className = 'when'; w.textContent = '✓ ' + g.checkedIn; info.append(w); }
+      if (g.checkedIn) {
+        const w = document.createElement('small'); w.className = 'when';
+        w.textContent = g.checkedOut ? '↗ Checked out ' + g.checkedOut : '✓ Inside since ' + g.checkedIn;
+        info.append(w);
+      }
       const btn = document.createElement('button'); btn.type = 'button';
-      btn.textContent = g.checkedIn ? 'Undo' : 'Check in';
-      if (!g.checkedIn) btn.className = 'go';
+      const eligible = mode === 'checkout' ? !!g.checkedIn && !g.checkedOut : !g.checkedIn;
+      btn.textContent = mode === 'checkout'
+        ? (g.checkedOut ? 'Already out' : (g.checkedIn ? 'Check out' : 'Not inside'))
+        : (g.checkedIn ? 'Already in' : 'Check in');
+      btn.disabled = !eligible || !allowed(mode);
+      if (eligible) btn.className = 'go';
       // Two taps so a mis-tap never changes attendance.
       let armed = 0;
       btn.addEventListener('click', async () => {
@@ -275,10 +373,10 @@
         clearTimeout(armed); armed = 0;
         btn.disabled = true; btn.textContent = '…';
         try {
-          const d = g.checkedIn ? await post({ action: 'undo', ...auth(), ref: g.ref }) : await post({ action: 'checkin', ...auth(), ref: g.ref, manual: true });
+          const d = await post({ action: mode === 'checkout' ? 'checkout' : 'checkin', ...auth(), ref: g.ref, manual: true });
           if (!d.ok) { listErr(d.message || 'Could not save. Try again.'); return loadList(); }
           setCount(d.stats);
-          feedback(!g.checkedIn);
+          feedback(true);
           await loadList();
         } catch { listErr('No signal. Try again.'); btn.disabled = false; }
       });
@@ -295,6 +393,7 @@
       if (!d.ok) return listErr(d.message || 'Could not load the list.');
       guests = d.guests || [];
       setCount(d.stats);
+      updateWindow(d.window);
       drawList();
     } catch { listErr('No signal. Check your connection and tap Refresh.'); }
     finally { $('listRefresh').disabled = false; $('listRefresh').textContent = 'Refresh list'; }

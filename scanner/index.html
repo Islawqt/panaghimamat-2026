@@ -135,10 +135,27 @@ h1 em{color:var(--gold-soft);font-style:italic}
 .guests .empty{padding:1rem;text-align:center;color:var(--cream-soft);font:italic 1.1rem var(--serif)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (prefers-reduced-motion:reduce){.laser{animation:none;top:50%}.result{animation:none}.lock{transition:opacity .15s}.lock.locked i{animation:none}}
+
+/* Two-mode scanner; all deadlines checked again by Apps Script. */
+.mode-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.mode-row button{min-height:54px;border:1px solid var(--gold);background:rgba(0,0,0,.35);color:var(--cream);font:600 1.05rem var(--body)}
+.mode-row button[aria-pressed=true]{background:var(--gold);color:var(--wine)}
+.mode-row button:disabled{opacity:.42;cursor:not-allowed}
+.mode-hint{margin:0 0 9px;text-align:center;color:var(--cream-soft)}
+.president-extension{border:1px solid rgba(201,162,92,.55);padding:8px;margin-bottom:8px}
+.president-extension .btn{width:100%;margin-top:8px}
+.admin-times{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}
+.admin-times label{display:flex;flex-direction:column;gap:5px;color:var(--cream-soft);font-size:.88rem;text-align:left}
+.admin-times input{height:44px;width:100%;padding:6px 8px;color:var(--ink);background:var(--cream);border:1px solid var(--gold);border-radius:3px;font:600 1rem var(--body)}
+.admin-times input:focus-visible{outline:2px solid var(--gold-soft)}
+.president-extension strong{color:var(--gold-soft)}
+.result.departed{background:#155b51}
+.result.already_out{background:#7a4f10}
+.result.not_in{background:#6d1620}
 </style>
 <script src="config.js" defer></script>
 <script src="assets/vendor/jsQR.js" defer></script>
-<script src="assets/scanner.js?v=20261020-lock" defer></script>
+<script src="assets/scanner.js?v=20261020-attendance-modes" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><filter id="deckle" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/></filter></defs></svg>
@@ -174,6 +191,27 @@ h1 em{color:var(--gold-soft);font-style:italic}
       <img class="mark" src="assets/ssc-logo.png" alt="" width="38" height="38">
       <span class="pill who" id="whoPill"></span>
     </div>
+    <div id="attendanceModes" hidden>
+      <div class="mode-row" role="group" aria-label="Attendance mode">
+        <button id="chooseCheckin" type="button" aria-pressed="true">↘ Check in</button>
+        <button id="chooseCheckout" type="button" aria-pressed="false" disabled>↗ Check out</button>
+      </div>
+      <p class="mode-hint" id="attendanceWindow" role="status"></p>
+    </div>
+    <section class="president-extension" id="presidentExtension" hidden aria-label="Admin scanner schedule">
+      <p class="mode-hint"><strong>Admin · Scanner schedule</strong></p>
+      <form id="adminScheduleForm" novalidate>
+        <div class="admin-times">
+          <label>Check-in opens<input id="adminInStart" type="time" required step="60"></label>
+          <label>Check-in closes<input id="adminInEnd" type="time" required step="60"></label>
+          <label>Check-out opens<input id="adminOutStart" type="time" required step="60"></label>
+          <label>Check-out closes<input id="adminOutEnd" type="time" required step="60"></label>
+        </div>
+        <button type="submit" class="btn gold" id="saveAdminTimes">Save schedule</button>
+      </form>
+      <button type="button" class="btn ghost" id="extendCheckin" hidden>Extend check-in by 30 minutes</button>
+      <p class="mode-hint" id="adminScheduleMessage" role="status">Philippine time · October 23, 2026</p>
+    </section>
     <div class="finder" id="finder">
       <video id="video" playsinline muted autoplay></video>
       <div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -190,7 +228,7 @@ h1 em{color:var(--gold-soft);font-style:italic}
     <form class="card" id="typeForm" hidden novalidate>
       <label for="typeInput">Ticket reference</label>
       <input id="typeInput" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="PH26-…">
-      <button class="btn gold" type="submit">Check in</button>
+      <button id="manualAction" class="btn gold" type="submit">Check in</button>
     </form>
     <button class="btn gold" type="button" id="listBtn">Attendance list</button>
     <button class="btn ghost" type="button" id="lockBtn">Lock scanner</button>
@@ -214,7 +252,7 @@ h1 em{color:var(--gold-soft);font-style:italic}
       <button type="button" role="tab" data-show="all" aria-selected="false">All <b id="nAll">0</b></button>
     </div>
     <input class="search" id="listSearch" type="search" placeholder="Search a name or section" autocomplete="off" aria-label="Search a name or section">
-    <p class="hint">Check in from this list only when you can see the guest in person. If a ticket was scanned for someone who isn’t here, tap <b>Undo</b>. That check-in is void.</p>
+    <p class="hint">Record guests only while they are present. Duplicate check-ins and check-outs are blocked across all officers.</p>
     <p class="err" id="listErr" role="alert" hidden></p>
     <ul class="guests" id="guestList" aria-live="polite"></ul>
     <button class="btn ghost" type="button" id="listRefresh">Refresh list</button>
