@@ -333,16 +333,16 @@
   }
   // Wake the Google script early so the actual sending is quicker.
   let warmed = false;
-  // Tickets switch on only when the deployed Google script supports them, so this page
-  // keeps working the old way until the SSC redeploys Code.gs.
-  let ticketsReady = false, dedupeReady = false;
+  // The deployed RSVP backend supports tickets and duplicate-name lookup.
+  // Never infer these features from the diagnostic ping.version string:
+  // scanner/Admin deployments can rename it without changing RSVP endpoints.
+  // Ready immediately so a slow ping cannot silently skip the name check.
+  const ticketsReady = !preview, dedupeReady = !preview;
   function warmUp() {
     if (warmed || !configured) return;
     warmed = true;
     fetch(`${API}?action=ping`, { credentials: 'omit' }).then((r) => r.json()).then((d) => {
-      ticketsReady = /tickets/.test(String(d && d.version || ''));
-      dedupeReady = /dedupe/.test(String(d && d.version || ''));
-      $('statusLink').hidden = !/status/.test(String(d && d.version || ''));
+      $('statusLink').hidden = !(d && d.ok === true);
       checkEarlierReply();
       updatePayment();
     }).catch(() => {});
@@ -473,7 +473,7 @@
     const attending = attendance === 'Attending';
     $('reasonWrap').hidden = attendance !== 'Not attending';
     $('paymentFields').hidden = !attending;
-    $('emailWrap').hidden = !ticketsReady;
+    $('emailWrap').hidden = !attending || !ticketsReady;
     $('feeValue').textContent = `₱${FEE}`;
     const method = selected('paymentMethod');
     $('proofWrap').hidden = !(attending && (method === 'GCash' || method === 'Bank Transfer'));
