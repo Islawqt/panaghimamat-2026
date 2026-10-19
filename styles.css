@@ -384,8 +384,3 @@ textarea:focus{border-color:var(--oxblood);outline:none;box-shadow:0 0 0 2px rgb
   body:has(#ticketSlot:not([hidden]) .ticket) .paper:after{filter:none;box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .ticket-page .velvet,.ticket-page .masthead,.ticket-page .footer-mark,.ticket-page .credit,.ticket-page .actions,.ticket-page .page-title,.ticket-page .lead{display:none}
 }
-
-/* Low-profile officer entry — outside the guest invitation flow. */
-.officer-access{text-align:center;margin:9px 0 0}
-.officer-access a{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:7px 18px;border:1px solid rgba(201,162,92,.48);border-radius:999px;background:rgba(24,2,5,.42);color:var(--gold-soft);font:600 .74rem/1.15 var(--body);letter-spacing:.12em;text-transform:uppercase;text-decoration:none;transition:background .15s,border-color .15s}
-.officer-access a:hover,.officer-access a:focus-visible{background:rgba(201,162,92,.14);border-color:var(--gold-soft)}
