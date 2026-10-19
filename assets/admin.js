@@ -42,6 +42,7 @@
     if (!w || typeof w.checkinOpen !== 'boolean' || typeof w.checkoutOpen !== 'boolean') return;
     current = w;
     $('serverTime').textContent = 'Server time · ' + (w.now || 'Philippine time');
+    if (credentials && guests.length) renderOfficerActivity();
     for (const [key, live] of [['statusCheckin',w.checkinOpen],['statusCheckout',w.checkoutOpen]]) {
       const el=$(key); el.className = 'pill ' + (live?'open':'closed');
       el.textContent = (key === 'statusCheckin'?'Check-in ':'Check-out ') + (live?'open':'closed');
@@ -64,6 +65,90 @@
     $('metricInside').textContent = inside.toLocaleString();
     $('metricOut').textContent = out.toLocaleString();
   }
+
+  /* Read the official attendance stamps, which already record the officer responsible
+   * for each successful action. Duplicate scans never create a second stamp.
+   * "Recently scanning" is deliberately NOT described as an online/login presence. */
+  const activityWindowMinutes = 15;
+  const stampPattern = /^([A-Za-z]{3})\s+(\d{1,2}),\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i;
+  const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  function parseStamp(value) {
+    const text=String(value||'').trim();
+    const pos=text.lastIndexOf(' · ');
+    if(pos<0)return null;
+    const printed=text.slice(0,pos).trim();
+    const manual=/\s*\(from list\)\s*$/i.test(text.slice(pos+3));
+    const officer=text.slice(pos+3).trim().replace(/\s*\(from list\)\s*$/i,'').trim();
+    if(!officer)return null;
+    const match=stampPattern.exec(printed);
+    let timestamp=0;
+    if(match){
+      const month=months.indexOf(match[1].toLowerCase());
+      const day=Number(match[2]),min=Number(match[4]);
+      let hour=Number(match[3])%12;
+      if(match[5].toUpperCase()==='PM')hour+=12;
+      const year=Number(((window.PANAGHIMAMAT_CONFIG||{}).eventDate||'2026').slice(0,4));
+      if(month>=0 && day>=1 && day<=31 && hour<24 && min<60) timestamp=Date.UTC(year,month,day,hour-8,min);
+    }
+    return {officer,printed,manual,timestamp};
+  }
+  function serverNow(){
+    const t=String(current?.now||'');
+    return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(t)
+      ? Date.parse(t.replace(' ','T')+':00+08:00') : NaN;
+  }
+  function renderOfficerActivity(){
+    const people=new Map();
+    let manualCount=0,recorded=0;
+    function collect(stamp,kind){
+      if(!stamp)return;
+      const action=parseStamp(stamp);
+      if(!action)return;
+      const key=action.officer.toLocaleLowerCase().replace(/\s+/g,' ').trim();
+      if(!people.has(key))people.set(key,{name:action.officer,checkins:0,checkouts:0,manual:0,last:0,lastPrinted:''});
+      const row=people.get(key);
+      if(kind==='in')row.checkins++;else row.checkouts++;
+      if(action.manual){row.manual++;manualCount++;}
+      if(action.timestamp>row.last){row.last=action.timestamp;row.lastPrinted=action.printed;}
+      recorded++;
+    }
+    for(const g of guests){collect(g.checkedIn,'in');collect(g.checkedOut,'out');}
+    const now=serverNow(),status=Number.isFinite(now);
+    const officers=[...people.values()].map(o=>({
+      ...o,
+      total:o.checkins+o.checkouts,
+      recent:status&&o.last>0&&now>=o.last&&now-o.last<=activityWindowMinutes*60000
+    })).sort((a,b)=>Number(b.recent)-Number(a.recent)||b.last-a.last||b.total-a.total||a.name.localeCompare(b.name));
+    const active=officers.filter(o=>o.recent).length;
+    $('activeOfficerCount').textContent=active+' recently scanning';
+    $('activeOfficerCount').classList.toggle('idle',active===0);
+    $('officerScanCount').textContent=recorded.toLocaleString();
+    $('trackedOfficerCount').textContent=officers.length.toLocaleString();
+    $('manualScanCount').textContent=manualCount.toLocaleString();
+    const list=$('officerList');list.replaceChildren();
+    if(!officers.length){
+      const empty=document.createElement('p');empty.className='officer-empty';
+      empty.textContent='No check-ins or check-outs recorded yet.';
+      list.append(empty);return;
+    }
+    for(const officer of officers){
+      const el=document.createElement('div');el.className='officer-person';
+      const identity=document.createElement('div');identity.className='officer-identity';
+      const avatar=document.createElement('span');avatar.className='officer-avatar';avatar.setAttribute('aria-hidden','true');
+      avatar.textContent=officer.name.split(/\s+/).slice(0,2).map(n=>n.charAt(0)).join('').toUpperCase();
+      const info=document.createElement('div');
+      const name=document.createElement('strong');name.textContent=officer.name;
+      if(officer.recent){const tag=document.createElement('span');tag.className='officer-tag';tag.textContent='Recent';name.append(' ',tag);}
+      const last=document.createElement('small');
+      last.textContent=officer.lastPrinted?'Last recorded · '+officer.lastPrinted:'Officer with a recorded scan';
+      info.append(name,last);identity.append(avatar,info);
+      const counts=document.createElement('div');counts.className='officer-counts';
+      const n=document.createElement('strong');n.textContent=officer.total.toLocaleString();
+      const breakdown=document.createElement('span');breakdown.textContent=officer.checkins+' in · '+officer.checkouts+' out';
+      counts.append(n,breakdown);el.append(identity,counts);list.append(el);
+    }
+  }
+
   const statusOf = g => g.checkedOut ? 'out' : g.checkedIn ? 'inside' : 'pending';
   const escapeNorm = s => String(s||'').toLocaleLowerCase().normalize('NFKD');
   function renderGuests() {
@@ -108,7 +193,7 @@
       if (!Array.isArray(d.guests)) throw new Error('Unexpected attendance data');
       guests=d.guests;
       if(d.window) renderWindow(d.window);
-      stats(); renderGuests();
+      stats(); renderGuests(); renderOfficerActivity();
       const time=new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'Asia/Manila'}).format(new Date());
       $('lastUpdated').textContent='Attendance refreshed · '+time;
       $('guestUpdate').textContent='Updated '+time+' · Tap Refresh for latest';
@@ -147,6 +232,10 @@
     $('dashboard').hidden=true;$('signOut').hidden=true;
     $('topName').textContent='Private officer administration';$('guestList').replaceChildren();
     $('metricEligible').textContent=$('metricArrived').textContent=$('metricInside').textContent=$('metricOut').textContent='—';
+    $('activeOfficerCount').textContent='0 recently scanning';$('activeOfficerCount').classList.add('idle');
+    $('officerScanCount').textContent=$('trackedOfficerCount').textContent=$('manualScanCount').textContent='0';
+    const empty=document.createElement('p');empty.className='officer-empty';empty.textContent='Sign in to view officer activity';
+    $('officerList').replaceChildren(empty);
     scheduleMessage('');notice($('dashboardError'),'');
     $('user').focus();
   }
@@ -206,6 +295,11 @@
       if(response.ok){const data=await response.json();if(data?.window)renderWindow(data.window);}
     }catch{}
   },60000);
+  // Attendance snapshots refresh every two minutes only while this Admin tab is visible.
+  // Server remains the source of truth; this poll never changes attendance records.
+  setInterval(()=>{
+    if (credentials && !document.hidden && !refreshing && !dirty) refreshAttendance();
+  },120000);
   window.addEventListener('beforeunload',e=>{
     if(dirty && credentials){e.preventDefault();e.returnValue='';}
   });

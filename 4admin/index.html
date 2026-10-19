@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#29080d">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="referrer" content="no-referrer">
-<title>SSC Administration · Panaghimamat 2026</title>
+<title>Admin Dashboard · Panaghimamat 2026</title>
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="stylesheet" href="assets/fonts/fonts.css?v=1">
 <style>
@@ -95,9 +95,124 @@ input::placeholder{color:#9f9381}
 @media(max-width:850px){.columns{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.meta{text-align:left}.intro{display:block}.intro .meta{margin-top:14px}}
 @media(max-width:500px){.wrap{padding:22px 14px 60px}.topinner{padding:12px 14px}.brand strong{font-size:1.08rem}.brand img{height:38px;width:38px}.topnav span{display:none}.panel-head{padding:17px 16px 12px}.panel-content{padding:17px 16px 20px}.panel-footer{padding:14px 16px}.metrics{gap:9px}.metric{padding:13px}.metric .value{font-size:2.5rem}.windows{gap:10px}.finder select{flex:1 1 120px}.person{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+/* Responsive Admin dashboard refinement — Panaghimamat 2026 */
+:root{--shadow:0 12px 36px rgba(66,34,18,.07);--r:15px}
+body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transparent 40%),linear-gradient(#f9f5ef,#f3ede5);-webkit-font-smoothing:antialiased}
+.top{position:relative;box-shadow:0 5px 26px rgba(37,8,12,.15)}
+.topinner{min-height:77px}
+.topnav{flex-shrink:0}
+.topnav button{border-radius:100px;font-size:.88rem;min-height:40px}
+.wrap{padding-top:32px}
+.eyebrow{font-size:.72rem}
+.intro{margin-bottom:22px}
+.intro h1{letter-spacing:-.018em}
+.meta{line-height:1.45}
+.metric{min-width:0;border:1px solid var(--line);border-top:3px solid var(--gold);border-radius:12px;box-shadow:var(--shadow)}
+.metric:nth-child(2){border-top-color:#8f5860}
+.metric:nth-child(3){border-top-color:#467c65}
+.metric:nth-child(4){border-top-color:#a47745}
+.metric .name{font-size:.7rem;letter-spacing:.12em}
+.metric .detail{line-height:1.2;display:block}
+.panel{border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);min-width:0}
+.panel-head{background:linear-gradient(130deg,#fffdf9,#f9f3e9)}
+.panel-head h2{font-size:2rem}
+.panel-content{min-width:0}
+.panel-kicker{margin:0 0 5px!important;font:700 .66rem/1.2 var(--body)!important;text-transform:uppercase;letter-spacing:.17em;color:#8b6650!important}
+.panel-head-split{display:flex;justify-content:space-between;align-items:center;gap:14px}
+.live-count{flex:none;font:600 .76rem/1.2 var(--body);color:var(--green);background:#e6f2eb;border:1px solid #cce2d4;padding:9px 11px;border-radius:999px}
+.live-count::before{content:"";display:inline-block;height:7px;width:7px;border-radius:100%;background:#5e9f79;margin-right:7px}
+.live-count.idle{color:var(--muted);background:#f4ede5;border-color:#e1d4c3}
+.live-count.idle::before{background:#b9ab96}
+.officer-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--line)}
+.officer-summary>div{padding:17px 16px;border-right:1px solid var(--line)}
+.officer-summary>div:last-child{border-right:0}
+.officer-summary strong{display:block;font:600 2rem/.95 var(--display);color:var(--wine)}
+.officer-summary span{display:block;color:var(--muted);font:.84rem/1.15 var(--body);margin-top:6px}
+.officer-list{padding:4px 20px}
+.officer-person{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:15px 0;border-bottom:1px solid var(--line)}
+.officer-person:last-child{border-bottom:0}
+.officer-identity{display:flex;align-items:center;gap:11px;min-width:0}
+.officer-avatar{display:grid;place-items:center;flex:none;background:#f1e6d4;color:var(--wine);border:1px solid #dec49b;border-radius:11px;width:38px;height:38px;font:600 1.1rem var(--display)}
+.officer-person strong{display:block;font:600 1.2rem/1.13 var(--display);color:var(--wine);overflow-wrap:anywhere}
+.officer-person small{display:block;color:var(--muted);font:.81rem/1.25 var(--body);margin-top:4px}
+.officer-counts{text-align:right;flex:none}
+.officer-counts strong{font:600 1.75rem/.94 var(--display);color:var(--wine)}
+.officer-counts span{display:block;color:var(--muted);font:.8rem/1.2 var(--body);margin-top:4px}
+.officer-tag{display:inline-block;border-radius:999px;background:#e5f2ea;color:#226447;font:.75rem var(--body);padding:2px 7px;margin-left:6px}
+.officer-empty{padding:19px 0;color:var(--muted);text-align:center;font:.96rem var(--body)}
+.activity-caveat{margin:0;border-top:1px solid var(--line);padding:11px 20px 13px;background:#f9f3eb;font:.83rem/1.35 var(--body);color:var(--muted)}
+.tiny-reminder{margin:0;color:var(--muted);font:italic .91rem/1.25 var(--body);text-align:center}
+.tiny-reminder span{color:#ae854c;margin-right:6px}
+.windows>*{min-width:0}
+.windows input{min-width:0;max-width:100%}
+.finder>*{min-width:0}
+.finder input{min-width:0}
+.person{align-items:start}
+.person small{overflow-wrap:anywhere}
+.officers-panel{order:2}
+@media(max-width:850px){
+  .columns{gap:16px}
+  .stack{gap:16px}
+  .officer-summary>div{padding:14px}
+}
+@media(max-width:580px){
+  body{font-size:1rem}
+  .topinner{min-height:69px;gap:9px}
+  .brand{gap:8px;min-width:0}
+  .brand .small{font-size:.53rem;letter-spacing:.09em}
+  .brand strong{font-size:1.05rem}
+  .topnav{gap:5px}
+  .topnav button{padding:7px 10px;font-size:.8rem}
+  .wrap{padding:21px 13px 50px}
+  .login{margin:24px auto}
+  .intro{margin-bottom:18px}
+  .intro h1{font-size:3rem}
+  .intro .sub{font-size:.99rem}
+  .intro .meta{margin-top:11px;font-size:.85rem}
+  .metrics{gap:9px;margin-bottom:17px}
+  .metric{padding:14px 13px;min-height:123px}
+  .metric .value{font-size:2.55rem;margin:13px 0 7px}
+  .metric .name{font-size:.67rem}
+  .metric .detail{font-size:.82rem}
+  .panel-head{padding:17px 17px 13px}
+  .panel-head h2{font-size:1.85rem}
+  .panel-head p{font-size:.88rem}
+  .panel-content{padding:17px}
+  .panel-footer{padding:13px 17px}
+  .columns{gap:16px}
+  .stack{gap:16px}
+  .windows{gap:11px}
+  .windows label{font-size:.85rem}
+  input,select{font-size:16px;min-height:46px}
+  .finder{gap:9px}
+  .finder #search{flex-basis:100%}
+  .finder #group,.finder #state{flex:1 1 calc(50% - 5px)}
+  .finder .button{min-height:44px}
+  .person{padding:13px 0}
+  .officer-summary>div{padding:14px 12px}
+  .officer-summary strong{font-size:1.8rem}
+  .officer-summary span{font-size:.77rem}
+  .officer-list{padding:2px 16px}
+  .activity-caveat{padding:12px 16px}
+  .officer-person{gap:9px}
+  .officer-avatar{height:33px;width:33px}
+  .officer-person strong{font-size:1.12rem}
+  .officer-counts strong{font-size:1.5rem}
+  .panel-head-split{gap:9px}
+  .live-count{padding:8px 9px;font-size:.7rem;white-space:nowrap}
+}
+@media(max-width:350px){
+  .topnav span{display:none}
+  .metric .name{letter-spacing:.07em}
+  .panel-head-split{flex-wrap:wrap}
+  .live-count{margin-top:3px}
+  .windows{grid-template-columns:1fr 1fr;gap:8px}
+  .windows input{padding:8px 6px}
+}
 </style>
 <script src="config.js" defer></script>
-<script src="assets/admin.js?v=20261020-separate" defer></script>
+<script src="assets/admin.js?v=20261020-officers-mobile" defer></script>
 </head>
 <body>
 <header class="top">
@@ -164,14 +279,22 @@ input::placeholder{color:#9f9381}
             <p id="extensionNote" class="help">The extension button is available only when permitted by the server.</p>
           </div>
         </section>
-        <section class="panel" aria-labelledby="operationsTitle">
-          <div class="panel-head"><h2 id="operationsTitle">Operations notes</h2></div>
-          <div class="panel-content">
-            <p class="help" style="margin-top:0">The Admin dashboard is <strong>oversight only</strong>: it cannot scan QR codes, mark payments as paid, or check guests in/out. Officers perform those actions in the separate scanner.</p>
-            <p class="help">A second scan of the same QR will not create duplicate attendance. Corrections should be handled through the authorized officer workflow.</p>
-            <p class="help">Signing out clears your credentials from this page's memory. The URL itself is public, but all private data and schedule-changing requests require valid server-checked officer credentials and the Admin role.</p>
+        <section class="panel officers-panel" aria-labelledby="officersTitle">
+          <div class="panel-head panel-head-split">
+            <div><p class="panel-kicker">Officer overview</p><h2 id="officersTitle">Scanner activity</h2><p>Successful check-ins and check-outs from all officers.</p></div>
+            <span id="activeOfficerCount" class="live-count" title="Based on scans in the last 15 minutes">0 recently scanning</span>
           </div>
+          <div class="officer-summary">
+            <div><strong id="officerScanCount">0</strong><span>Recorded actions</span></div>
+            <div><strong id="trackedOfficerCount">0</strong><span>Officers with scans</span></div>
+            <div><strong id="manualScanCount">0</strong><span>Manual check-ins</span></div>
+          </div>
+          <div id="officerList" class="officer-list" aria-live="polite">
+            <p class="officer-empty">Attendance activity will appear after the first guest is checked in.</p>
+          </div>
+          <p class="activity-caveat">“Recently scanning” means a recorded action within 15 minutes, not a live login status. Only officers with recorded actions appear here.</p>
         </section>
+        <p class="tiny-reminder"><span aria-hidden="true">✦</span> Officers scan tickets. Admin manages schedules and monitors attendance.</p>
       </div>
       <section class="panel" aria-labelledby="guestsTitle">
         <div class="panel-head"><h2 id="guestsTitle">Guest status</h2><p>Read-only attendance lookup for paid guests. No emails or ticket references are displayed.</p></div>
