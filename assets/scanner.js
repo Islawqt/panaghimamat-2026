@@ -9,7 +9,7 @@
     get(k) { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
     set(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} }
   };
-  // Officer accounts come from the "Officers" tab the President fills in (up to 4).
+  // Officer accounts come from the "Officers" tab the President fills in (up to 5).
   let user = store.get('ph26-officer-user'), pass = store.get('ph26-officer-pass'), officer = '';
   const auth = () => ({ user, pass });
   let lastRef = '', guests = [], listView = 'out', listGroup = 'student';
@@ -29,10 +29,8 @@
     } finally { clearTimeout(t); }
   }
   const showErr = (m) => { $('startErr').textContent = m; $('startErr').hidden = !m; };
-  let lastStats = null;
   function setCount(stats) {
     if (!stats) return;
-    lastStats = stats;
     $('countPill').textContent = `${stats.inside} / ${stats.paid} inside`;
   }
 
@@ -56,6 +54,7 @@
       $('whoPill').textContent = officer;
       $('sStart').hidden = true; $('sCam').hidden = false;
       startCamera();
+      wake();
     } catch {
       showErr('No connection. Check your signal and try again.');
     } finally {
@@ -96,6 +95,7 @@
   }
   function stopCamera() {
     scanning = false;
+    releaseLock();
     clearTimeout(timer);
     if (stream) stream.getTracks().forEach((t) => t.stop());
     stream = null;
@@ -103,31 +103,74 @@
   $('flipBtn').addEventListener('click', () => { facing = facing === 'environment' ? 'user' : 'environment'; startCamera(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); else if (!$('sCam').hidden && $('result').hidden) startCamera(); });
 
+  // Returns { text, pts } where pts are the QR's 4 corners in video pixels (TL, TR, BR, BL).
   async function readFrame() {
     const v = $('video');
-    if (!v.videoWidth) return '';
+    if (!v.videoWidth) return null;
     if (detector) {
-      try { const codes = await detector.detect(v); if (codes.length) return codes[0].rawValue || ''; } catch { detector = null; }
-      return '';
+      try { const codes = await detector.detect(v); if (codes.length) return { text: codes[0].rawValue || '', pts: codes[0].cornerPoints || [] }; } catch { detector = null; }
+      return null;
     }
-    if (!window.jsQR) return '';
+    if (!window.jsQR) return null;
     // Center square of the frame, scaled down for speed.
     const side = Math.min(v.videoWidth, v.videoHeight), size = Math.min(640, side);
     canvas.width = canvas.height = size;
     ctx.drawImage(v, (v.videoWidth - side) / 2, (v.videoHeight - side) / 2, side, side, 0, 0, size, size);
     const img = ctx.getImageData(0, 0, size, size);
     const hit = window.jsQR(img.data, size, size, { inversionAttempts: 'dontInvert' });
-    return hit ? hit.data : '';
+    if (!hit) return null;
+    const k = side / size, x0 = (v.videoWidth - side) / 2, y0 = (v.videoHeight - side) / 2, L = hit.location;
+    const pts = [L.topLeftCorner, L.topRightCorner, L.bottomRightCorner, L.bottomLeftCorner].map((p) => ({ x: x0 + p.x * k, y: y0 + p.y * k }));
+    return { text: hit.data, pts };
+  }
+
+  /* Brackets that stick to the QR on screen, like a real scanner. */
+  let seenAt = 0;
+  function placeLock(pts) {
+    const v = $('video'), f = $('finder'), lock = $('lock');
+    if (!pts || pts.length < 4 || !v.videoWidth) return;
+    // The video fills the square with object-fit: cover, so map video pixels to screen pixels.
+    const fw = f.clientWidth, fh = f.clientHeight, sc = Math.max(fw / v.videoWidth, fh / v.videoHeight);
+    const ox = (fw - v.videoWidth * sc) / 2, oy = (fh - v.videoHeight * sc) / 2;
+    const p = pts.map((q) => ({ x: q.x * sc + ox, y: q.y * sc + oy }));
+    const d = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+    const w = (d(p[0], p[1]) + d(p[3], p[2])) / 2 * 1.14, h = (d(p[0], p[3]) + d(p[1], p[2])) / 2 * 1.14;
+    const cx = (p[0].x + p[1].x + p[2].x + p[3].x) / 4, cy = (p[0].y + p[1].y + p[2].y + p[3].y) / 4;
+    const deg = Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x) * 180 / Math.PI;
+    lock.style.width = w + 'px'; lock.style.height = h + 'px';
+    lock.style.transform = `translate(${cx - w / 2}px, ${cy - h / 2}px) rotate(${deg}deg)`;
+    lock.classList.add('on'); f.classList.add('tracking');
+    seenAt = Date.now();
+  }
+  function releaseLock() {
+    $('lock').classList.remove('on', 'locked'); $('finder').classList.remove('tracking');
   }
   async function loop() {
     if (!scanning) return;
     if (!busy && $('result').hidden) {
-      const text = (await readFrame()).trim();
+      const hit = await readFrame();
+      const text = hit ? String(hit.text || '').trim() : '';
       const now = Date.now();
-      if (text && !(text === lastText && now - lastAt < 4000)) { lastText = text; lastAt = now; check(text); }
+      if (hit) placeLock(hit.pts);
+      else if (now - seenAt > 350) releaseLock();
+      if (text && !(text === lastText && now - lastAt < 4000)) {
+        lastText = text; lastAt = now;
+        // Lock on and freeze the picture while the Sheet answers.
+        $('lock').classList.add('locked');
+        $('video').pause();
+        check(text);
+      }
     }
-    timer = setTimeout(loop, 140);
+    timer = setTimeout(loop, 90);
   }
+  function resumeCamera() {
+    releaseLock();
+    const v = $('video');
+    if (stream && v.paused) v.play().catch(() => {});
+  }
+  // Keep the Google script awake while the scanner is open, so the first scan is not slow.
+  const wake = () => { if (!$('sCam').hidden && !document.hidden) fetch(`${API}?action=ping`, { credentials: 'omit' }).catch(() => {}); };
+  setInterval(wake, 4 * 60 * 1000);
 
   /* ---------- Check-in ---------- */
   function feedback(good) {
@@ -175,9 +218,11 @@
       show('error', { message: 'No signal. Move closer to Wi-Fi or data, then scan again.' });
     } finally {
       busy = false; $('busy').hidden = true;
+      if ($('result').hidden) resumeCamera();
     }
   }
-  $('nextBtn').addEventListener('click', () => { $('result').hidden = true; lastText = ''; });
+  // The same ticket is ignored for 4 seconds after Next, so a guest still holding it up is not re-scanned.
+  $('nextBtn').addEventListener('click', () => { $('result').hidden = true; lastAt = Date.now(); resumeCamera(); });
   $('undoBtn').addEventListener('click', async () => {
     if (!lastRef) return;
     $('undoBtn').disabled = true; $('undoBtn').textContent = 'Undoing…';

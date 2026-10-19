@@ -73,6 +73,19 @@ h1 em{color:var(--gold-soft);font-style:italic}
 .frame i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
 .frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
 .frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+.frame,.laser{transition:opacity .15s}
+.finder.tracking .frame,.finder.tracking .laser{opacity:0}
+/* the gold brackets that lock onto the guest's QR and follow it */
+.lock{position:absolute;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;transform-origin:50% 50%;transition:transform .1s linear,width .1s linear,height .1s linear,opacity .15s}
+.lock.on{opacity:1}
+.lock i{position:absolute;width:26%;height:26%;border:3px solid var(--gold-soft);filter:drop-shadow(0 0 6px rgba(201,162,92,.85))}
+.lock i:nth-child(1){top:-3px;left:-3px;border-right:0;border-bottom:0}
+.lock i:nth-child(2){top:-3px;right:-3px;border-left:0;border-bottom:0}
+.lock i:nth-child(3){bottom:-3px;left:-3px;border-right:0;border-top:0}
+.lock i:nth-child(4){bottom:-3px;right:-3px;border-left:0;border-top:0}
+.lock.locked{background:rgba(201,162,92,.12)}
+.lock.locked i{border-color:#fff3d6;border-width:4px;animation:snap .22s ease-out}
+@keyframes snap{from{transform:scale(1.35);opacity:.4}to{transform:none;opacity:1}}
 .laser{position:absolute;left:18%;right:18%;height:2px;top:20%;background:linear-gradient(90deg,transparent,var(--gold-soft),transparent);box-shadow:0 0 10px var(--gold);animation:sweep 2.2s ease-in-out infinite alternate;pointer-events:none}
 @keyframes sweep{to{top:80%}}
 .finder .msg{position:absolute;inset:0;display:grid;place-items:center;padding:1.2rem;text-align:center;background:var(--wine-2);color:var(--cream);font:italic 1.1rem var(--serif)}
@@ -121,11 +134,11 @@ h1 em{color:var(--gold-soft);font-style:italic}
 .guest button.sure{background:var(--bad);border-color:var(--bad);color:#fff}
 .guests .empty{padding:1rem;text-align:center;color:var(--cream-soft);font:italic 1.1rem var(--serif)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-@media (prefers-reduced-motion:reduce){.laser{animation:none;top:50%}.result{animation:none}}
+@media (prefers-reduced-motion:reduce){.laser{animation:none;top:50%}.result{animation:none}.lock{transition:opacity .15s}.lock.locked i{animation:none}}
 </style>
 <script src="config.js" defer></script>
 <script src="assets/vendor/jsQR.js" defer></script>
-<script src="assets/scanner.js?v=20261014-officers" defer></script>
+<script src="assets/scanner.js?v=20261020-lock" defer></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><filter id="deckle" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/></filter></defs></svg>
@@ -148,7 +161,7 @@ h1 em{color:var(--gold-soft);font-style:italic}
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
         <span>Sign in &amp; open scanner</span>
       </button>
-      <p class="soft">Only the 4 officer accounts made by the SSC President can sign in. Your phone will ask to use the camera. Tap Allow.</p>
+      <p class="soft">Only the 5 officer accounts made by the SSC President can sign in. Your phone will ask to use the camera. Tap Allow.</p>
     </form>
     <p class="hint" id="inAppHint" hidden>Inside Messenger or Facebook? Tap ⋮ and choose “Open in browser” so the camera works.</p>
     <p class="soft">Needs mobile data or Wi-Fi · Works best in Chrome or Safari</p>
@@ -165,6 +178,7 @@ h1 em{color:var(--gold-soft);font-style:italic}
       <video id="video" playsinline muted autoplay></video>
       <div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="laser" id="laser" aria-hidden="true"></div>
+      <div class="lock" id="lock" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="busy" id="busy" hidden>Checking…</div>
       <div class="msg" id="camMsg" hidden></div>
     </div>
