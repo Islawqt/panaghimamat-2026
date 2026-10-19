@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="../">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#29080d">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<title>SSC Administration · Panaghimamat 2026</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/fonts/fonts.css?v=1">
+<style>
+:root{--wine:#390b12;--wine2:#611725;--cream:#f8f1e4;--paper:#fffcf5;--ink:#312019;--muted:#715b4f;--gold:#bc9655;--gold2:#e8d4af;--line:#e4d9c5;--green:#205747;--amber:#986620;--body:'EB Garamond',Georgia,serif;--display:'Cormorant Garamond',Georgia,serif}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100vh;color:var(--ink);background:#f5efe4;font:1.07rem/1.4 var(--body)}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.55}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.top{background:linear-gradient(115deg,#270509,var(--wine) 72%,#4f0e19);color:var(--cream);border-bottom:3px solid var(--gold)}
+.topinner{max-width:1170px;padding:14px 24px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+.brand img{height:44px;width:44px;object-fit:contain;border-radius:50%;background:var(--paper);border:1px solid var(--gold);padding:3px}
+.brand .small{display:block;font:600 .64rem var(--body);text-transform:uppercase;letter-spacing:.18em;color:var(--gold2)}
+.brand strong{font:600 1.25rem var(--display);letter-spacing:.02em}
+.topnav{display:flex;align-items:center;gap:12px}
+.topnav button{border:1px solid #ac8a60;background:transparent;color:var(--cream);padding:9px 16px;font-size:.92rem}
+.topnav span{font-size:.9rem;color:var(--gold2)}
+.wrap{max-width:1170px;margin:0 auto;padding:28px 24px 70px}
+.eyebrow{font:700 .75rem var(--body);letter-spacing:.22em;text-transform:uppercase;color:var(--wine2);margin:0 0 6px}
+h1{font:500 clamp(2.8rem,6vw,4.2rem)/.99 var(--display);color:var(--wine);margin:0}
+h1 em{font-weight:400;color:#9a642e}
+.sub{margin:12px 0 0;color:var(--muted);max-width:620px}
+.login{max-width:470px;margin:44px auto}
+.panel{background:var(--paper);border:1px solid #d9c8a9;box-shadow:0 7px 28px rgba(55,25,10,.06)}
+.panel-head{padding:20px 24px 12px;border-bottom:1px solid var(--line)}
+.panel-head h2{font:600 1.9rem/1.1 var(--display);color:var(--wine);margin:0}
+.panel-head p{margin:8px 0 0;color:var(--muted);font-size:.94rem}
+.panel-content{padding:22px 24px 26px}
+.login .brandmark{display:flex;justify-content:center;align-items:center;height:85px;margin:4px auto 19px}
+.login .brandmark img{height:74px;max-width:90px;object-fit:contain}
+.login h1{text-align:center;font-size:2.65rem}
+.login .sub{text-align:center;margin:10px auto 23px}
+label{font-weight:600;display:block;font-size:.92rem}
+.field{display:grid;gap:6px;margin-bottom:16px}
+input,select{width:100%;min-height:46px;padding:10px 12px;border:1px solid #cdbd9e;background:#fffefa;color:var(--ink);border-radius:3px}
+input::placeholder{color:#9f9381}
+.button{border:1px solid var(--wine);background:var(--wine);color:#fff6df;padding:11px 18px;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font:600 .99rem var(--body);letter-spacing:.025em;text-decoration:none;transition:background .16s}
+.button:hover:not(:disabled){background:var(--wine2)}
+.button.secondary{background:transparent;color:var(--wine);border-color:#b89860}
+.button.secondary:hover:not(:disabled){background:#f5ebdc}
+.button.full{width:100%}
+.note{margin:14px 0 0;font-size:.89rem;color:var(--muted)}
+.notice{padding:12px 14px;border-left:3px solid var(--gold);background:#f6eddc;font-size:.96rem;margin:14px 0 0}
+.notice.error{border-color:#ab3b43;background:#fff0ee;color:#7f1b2c}
+.notice.success{border-color:#38765b;background:#eaf4ec;color:#28513e}
+.intro{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:24px}
+.meta{font-size:.93rem;color:var(--muted);text-align:right}
+.meta strong{color:var(--wine)}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}
+.metric{padding:17px 20px;background:var(--paper);border:1px solid var(--line);border-top:3px solid var(--gold)}
+.metric .name{display:block;font:600 .77rem var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.metric .value{display:block;font:600 2.8rem/.95 var(--display);margin:9px 0;color:var(--wine)}
+.metric .detail{font-size:.88rem;color:var(--muted)}
+.columns{display:grid;grid-template-columns:1.13fr 1fr;gap:20px;align-items:start}
+.stack{display:grid;gap:20px}
+.windows{display:grid;grid-template-columns:1fr 1fr;gap:13px 18px}
+.section-label{font:700 .8rem var(--body);text-transform:uppercase;letter-spacing:.13em;color:var(--wine2);margin:4px 0 12px}
+.statusline{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:100px;background:#f3e8da;font-size:.82rem;color:#684735}
+.pill::before{content:"";height:7px;width:7px;background:#b48b5a;border-radius:100%}
+.pill.open{background:#e4f1e8;color:var(--green)}
+.pill.open::before{background:#3b9a6d}
+.pill.closed::before{background:#a56854}
+.panel-footer{padding:13px 24px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px}
+.help{color:var(--muted);font-size:.91rem;margin:12px 0 0}
+.finder{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.finder input{flex:1 1 210px;min-width:0}
+.finder select{flex:0 1 150px}
+.list{list-style:none;margin:0;padding:0;max-height:440px;overflow:auto}
+.person{display:grid;grid-template-columns:1fr auto;gap:8px;padding:12px 1px;border-bottom:1px solid var(--line)}
+.person:last-child{border-bottom:0}
+.person strong{display:block;font:600 1.25rem var(--display);color:var(--ink)}
+.person small{display:block;color:var(--muted);font-size:.84rem}
+.person .state{text-align:right;font-weight:600;font-size:.86rem;white-space:nowrap}
+.person .state.inside{color:var(--green)}
+.person .state.out{color:var(--wine2)}
+.person .state.notyet{color:#936c3a}
+.empty{padding:19px;text-align:center;color:var(--muted)}
+.divider{border:0;border-top:1px solid var(--line);margin:22px 0}
+.bottom{font:.85rem var(--body);color:#907b69;text-align:center;padding:30px 0 0}
+@media(max-width:850px){.columns{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.meta{text-align:left}.intro{display:block}.intro .meta{margin-top:14px}}
+@media(max-width:500px){.wrap{padding:22px 14px 60px}.topinner{padding:12px 14px}.brand strong{font-size:1.08rem}.brand img{height:38px;width:38px}.topnav span{display:none}.panel-head{padding:17px 16px 12px}.panel-content{padding:17px 16px 20px}.panel-footer{padding:14px 16px}.metrics{gap:9px}.metric{padding:13px}.metric .value{font-size:2.5rem}.windows{gap:10px}.finder select{flex:1 1 120px}.person{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+<script src="config.js" defer></script>
+<script src="assets/admin.js?v=20261020-separate" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="topinner">
+    <a class="brand" href="4admin/" aria-label="Panaghimamat administration home">
+      <img src="assets/ssc-logo.png" alt="SSC logo" width="44" height="44">
+      <span><span class="small">STI College Valencia · Supreme Student Council</span><strong>Panaghimamat 2026</strong></span>
+    </a>
+    <div class="topnav"><span id="topName">Private officer administration</span><button type="button" id="signOut" hidden>Sign out</button></div>
+  </div>
+</header>
+<main class="wrap">
+  <section class="login" id="loginScreen" aria-labelledby="loginTitle">
+    <div class="brandmark"><img src="assets/ssc-logo.png" alt="" width="74" height="74"></div>
+    <p class="eyebrow" style="text-align:center">SSC · Restricted access</p>
+    <h1 id="loginTitle">Admin <em>sign in</em></h1>
+    <p class="sub">Schedule controls and attendance oversight for the designated SSC Admin only.</p>
+    <div class="panel">
+      <div class="panel-head"><h2>Authorized account</h2><p>Sign in with the Admin credentials from the private Officers tab.</p></div>
+      <form class="panel-content" id="loginForm" novalidate>
+        <div class="field"><label for="user">Username</label><input id="user" autocomplete="username" maxlength="40" autocapitalize="none" spellcheck="false" required placeholder="Officer username"></div>
+        <div class="field"><label for="pass">Password</label><input id="pass" type="password" autocomplete="current-password" maxlength="80" required placeholder="Password"></div>
+        <button class="button full" id="loginButton" type="submit">Sign in to administration</button>
+        <p id="loginError" class="notice error" role="alert" hidden></p>
+        <p class="note">Only an account with <strong>Admin</strong> or <strong>President</strong> in the Officers tab's Role column can enter. Your password is not saved on this device.</p>
+      </form>
+    </div>
+  </section>
+
+  <section id="dashboard" hidden aria-labelledby="dashboardTitle">
+    <div class="intro">
+      <div><p class="eyebrow">Event operations · Private dashboard</p><h1 id="dashboardTitle">Attendance <em>control</em></h1><p class="sub">Control scanner hours and monitor arrivals and departures, without handling QR scans here.</p></div>
+      <div class="meta"><strong id="adminName"></strong><div id="serverTime">Philippine time · —</div><div id="lastUpdated">Not refreshed yet</div></div>
+    </div>
+    <div class="metrics" aria-label="Attendance overview">
+      <article class="metric"><span class="name">Eligible guests</span><strong class="value" id="metricEligible">—</strong><span class="detail">Verified and attending</span></article>
+      <article class="metric"><span class="name">Arrived</span><strong class="value" id="metricArrived">—</strong><span class="detail">Checked in at least once</span></article>
+      <article class="metric"><span class="name">Currently inside</span><strong class="value" id="metricInside">—</strong><span class="detail">Checked in, not checked out</span></article>
+      <article class="metric"><span class="name">Checked out</span><strong class="value" id="metricOut">—</strong><span class="detail">Completed departures</span></article>
+    </div>
+    <div class="columns">
+      <div class="stack">
+        <section class="panel" aria-labelledby="scheduleTitle">
+          <div class="panel-head"><h2 id="scheduleTitle">Scanner schedule</h2><p>Changes apply to every officer scanner. All times are for October 23, 2026, in Philippine time.</p></div>
+          <div class="panel-content">
+            <p class="section-label">Current access</p>
+            <div class="statusline"><span id="statusCheckin" class="pill closed">Check-in closed</span><span id="statusCheckout" class="pill closed">Check-out closed</span></div>
+            <hr class="divider">
+            <form id="scheduleForm" novalidate>
+              <p class="section-label">Opening &amp; closing times</p>
+              <div class="windows">
+                <div class="field"><label for="checkinOpens">Check-in opens</label><input type="time" id="checkinOpens" step="60" required></div>
+                <div class="field"><label for="checkinCloses">Check-in closes</label><input type="time" id="checkinCloses" step="60" required></div>
+                <div class="field"><label for="checkoutOpens">Check-out opens</label><input type="time" id="checkoutOpens" step="60" required></div>
+                <div class="field"><label for="checkoutCloses">Check-out closes</label><input type="time" id="checkoutCloses" step="60" required></div>
+              </div>
+              <div class="finder"><button class="button" type="submit" id="saveSchedule">Save new schedule</button><button type="button" class="button secondary" id="undoChanges">Discard edits</button></div>
+            </form>
+            <p class="help">Check-in and check-out may overlap. Guest admission, duplicate checks and the clock restrictions are enforced by Apps Script.</p>
+            <p id="scheduleFeedback" class="notice" role="status" hidden></p>
+            <hr class="divider">
+            <p class="section-label">One-time extension</p>
+            <button type="button" id="extendButton" class="button secondary" hidden>Extend check-in closing by 30 minutes</button>
+            <p id="extensionNote" class="help">The extension button is available only when permitted by the server.</p>
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="operationsTitle">
+          <div class="panel-head"><h2 id="operationsTitle">Operations notes</h2></div>
+          <div class="panel-content">
+            <p class="help" style="margin-top:0">The Admin dashboard is <strong>oversight only</strong>: it cannot scan QR codes, mark payments as paid, or check guests in/out. Officers perform those actions in the separate scanner.</p>
+            <p class="help">A second scan of the same QR will not create duplicate attendance. Corrections should be handled through the authorized officer workflow.</p>
+            <p class="help">Signing out clears your credentials from this page's memory. The URL itself is public, but all private data and schedule-changing requests require valid server-checked officer credentials and the Admin role.</p>
+          </div>
+        </section>
+      </div>
+      <section class="panel" aria-labelledby="guestsTitle">
+        <div class="panel-head"><h2 id="guestsTitle">Guest status</h2><p>Read-only attendance lookup for paid guests. No emails or ticket references are displayed.</p></div>
+        <div class="panel-content">
+          <div class="finder">
+            <input id="search" type="search" placeholder="Search guest or section" autocomplete="off" aria-label="Search guests">
+            <select id="group" aria-label="Group"><option value="all">All groups</option><option value="student">Students</option><option value="faculty">Faculty</option></select>
+            <select id="state" aria-label="Attendance status"><option value="all">All statuses</option><option value="inside">Inside</option><option value="out">Checked out</option><option value="pending">Not arrived</option></select>
+          </div>
+          <p class="help" id="guestCount">Sign in to view guest attendance.</p>
+          <ul id="guestList" class="list" aria-live="polite"><li class="empty">No data loaded</li></ul>
+        </div>
+        <div class="panel-footer"><span class="help" id="guestUpdate" style="margin:0">—</span><button type="button" class="button secondary" id="refreshButton">Refresh attendance</button></div>
+      </section>
+    </div>
+    <p id="dashboardError" class="notice error" role="alert" hidden></p>
+  </section>
+  <footer class="bottom">STI College Valencia · Supreme Student Council · Panaghimamat 2026</footer>
+</main>
+</body>
+</html>

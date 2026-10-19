@@ -13,7 +13,7 @@
   let user = store.get('ph26-officer-user'), pass = store.get('ph26-officer-pass'), officer = '';
   const auth = () => ({ user, pass });
   let lastRef = '', guests = [], listView = 'out', listGroup = 'student';
-  let mode = 'checkin', windowStatus = null, checkoutEnabled = false, admin = false, scheduleDirty = false;
+  let mode = 'checkin', windowStatus = null, checkoutEnabled = false;
   const allowed = (m) => !checkoutEnabled || !!(windowStatus && (m === 'checkout' ? windowStatus.checkoutOpen : windowStatus.checkinOpen));
   function switchMode(m) {
     if (!allowed(m) || (m === 'checkout' && !checkoutEnabled)) return;
@@ -34,60 +34,10 @@
       ? (w.checkinOpen ? 'Both modes open · Check-in closes ' + w.checkinCloses + ' PH time' : 'Check-out open · Check-in closed')
       : (w.checkinOpen ? 'Check-in open · Check-out starts ' + w.checkoutOpens + ' PH time' :
         'Check-in ' + w.checkinOpens + '–' + w.checkinCloses + ' · Check-out ' + w.checkoutOpens + '–' + w.checkoutCloses + ' (PH time)');
-    $('presidentExtension').hidden = !admin;
-    $('extendCheckin').hidden = !admin || !w.canExtend;
-    if (!scheduleDirty) {
-      $('adminInStart').value = w.checkinOpens || '12:45';
-      $('adminInEnd').value = w.checkinCloses || '17:00';
-      $('adminOutStart').value = w.checkoutOpens || '17:00';
-      $('adminOutEnd').value = w.checkoutCloses || '23:59';
-    }
     if (!allowed(mode) && allowed(mode === 'checkin' ? 'checkout' : 'checkin')) switchMode(mode === 'checkin' ? 'checkout' : 'checkin');
   }
   $('chooseCheckin').addEventListener('click', () => switchMode('checkin'));
   $('chooseCheckout').addEventListener('click', () => switchMode('checkout'));
-  // Custom scheduling is visible only to Admin; the server re-verifies role.
-  ['adminInStart','adminInEnd','adminOutStart','adminOutEnd'].forEach(id => {
-    $(id).addEventListener('input', () => { scheduleDirty = true; });
-  });
-  $('adminScheduleForm').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!admin) return;
-    const schedule = {
-      checkinOpens: $('adminInStart').value, checkinCloses: $('adminInEnd').value,
-      checkoutOpens: $('adminOutStart').value, checkoutCloses: $('adminOutEnd').value
-    };
-    const err = $('adminScheduleMessage');
-    if (!Object.values(schedule).every(v => /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(v))
-      || schedule.checkinOpens >= schedule.checkinCloses
-      || schedule.checkoutOpens >= schedule.checkoutCloses
-      || schedule.checkoutOpens < schedule.checkinOpens) {
-      err.textContent = 'Check the times. Each opening must precede its closing, and check-out cannot open before check-in.';
-      return;
-    }
-    const save = $('saveAdminTimes'); save.disabled = true;
-    err.textContent = 'Saving scanner schedule…';
-    try {
-      const d = await post({ action: 'setAttendanceSchedule', ...auth(), schedule });
-      if (!d.ok) { err.textContent = d.message || 'Unable to update schedule.'; return; }
-      scheduleDirty = false;
-      updateWindow(d.window);
-      err.textContent = 'Schedule saved. New times apply immediately to all officers (Philippine time).';
-    } catch { err.textContent = 'Connection failed; schedule not confirmed. Check the server before retrying.'; }
-    finally { save.disabled = false; }
-  });
-  $('extendCheckin').addEventListener('click', async () => {
-    if (!admin || !windowStatus?.canExtend) return;
-    if (!confirm('Extend the current check-in closing time by 30 minutes? This is a one-time action.')) return;
-    $('extendCheckin').disabled = true;
-    try {
-      const r = await post({ action: 'extendCheckin', ...auth() });
-      if (!r.ok) return alert(r.message || 'Unable to extend check-in.');
-      updateWindow(r.window);
-      alert('Check-in extended until ' + r.window.checkinCloses + ' (Philippine time).');
-    } catch { alert('Unable to reach the backend. No extension confirmed.'); }
-    finally { $('extendCheckin').disabled = false; }
-  });
   // Read-only time refresh; server-side time gates are authoritative.
   setInterval(() => {
     if ($('sStart').hidden && checkoutEnabled)
@@ -129,7 +79,6 @@
       const d = await post({ action: 'officer', user: u, pass: p });
       if (!d.ok) { store.set('ph26-officer-pass', ''); pass = ''; return showErr(d.message || 'Wrong username or password.'); }
       user = u; pass = p; officer = d.officer || u;
-      admin = d.role === 'admin' || d.role === 'president';
       updateWindow(d.window);
       store.set('ph26-officer-user', u); store.set('ph26-officer-pass', p);
       $('officerPass').value = '';
@@ -149,8 +98,8 @@
 
   $('lockBtn').addEventListener('click', () => {
     stopCamera();
-    store.set('ph26-officer-pass', ''); pass = ''; officer = ''; admin = false; scheduleDirty = false;
-    $('attendanceModes').hidden = true; $('presidentExtension').hidden = true;
+    store.set('ph26-officer-pass', ''); pass = ''; officer = '';
+    $('attendanceModes').hidden = true;
     $('officerPass').value = ''; $('officerPass').placeholder = 'From the SSC President';
     $('sCam').hidden = true; $('sList').hidden = true; $('sStart').hidden = false;
   });
