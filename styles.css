@@ -184,7 +184,8 @@ input[type=file]{max-width:100%;font-size:.9rem;color:var(--ink)}
 .name-check[data-state=ok] .name-ok,.name-check[data-state=found] .name-ok{display:block;color:#2f5a2e;font:700 1.05rem var(--body);font-style:normal;animation:nameOk .35s ease-out}
 @keyframes nameSpin{to{transform:rotate(360deg)}}
 @keyframes nameOk{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
-#rsvpForm.checking>:not(:first-child):not(.honeypot){opacity:.45;pointer-events:none;transition:opacity .25s}
+#rsvpForm.checking>:not(:first-child):not(#dupNote):not(.honeypot){opacity:.45;pointer-events:none;user-select:none;transition:opacity .25s}
+.name-hint[hidden]{display:none}
 @media (prefers-reduced-motion:reduce){.name-check[data-state=checking] .name-spin{animation-duration:2.4s}}
 .dup-note{margin:-6px 0 16px;padding:12px;border:1px solid var(--gold);background:rgba(201,162,92,.12);font-size:.92rem;line-height:1.45;color:var(--ink)}
 .dup-note p{margin:0}

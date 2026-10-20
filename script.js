@@ -353,12 +353,22 @@
   let lookedUp = '', checking = null, typingTimer = 0;
   const pause = (ms) => new Promise((r) => setTimeout(r, ms));
   // Shows a spinner inside the name box and holds the form until the check is done.
+  // Everything below the name stays locked until the name is checked.
+  const nameHint = document.createElement('small');
+  nameHint.className = 'field-help name-hint'; nameHint.id = 'nameHint';
+  nameHint.textContent = 'Type your full name first. The rest of the form opens once your name is checked.';
+  $('nameCheck').after(nameHint);
   function nameState(state) {
     $('nameCheck').dataset.state = state;
     $('nameCheckText').textContent = state === 'checking' ? 'Checking…' : '';
-    $('rsvpForm').classList.toggle('checking', state === 'checking');
-    $('submitBtn').disabled = state === 'checking';
+    const locked = dedupeReady && !['ok', 'found', 'skip'].includes(state);
+    const form = $('rsvpForm');
+    form.classList.toggle('checking', locked);
+    [...form.children].forEach((el, i) => { if (i && el.id !== 'dupNote' && !el.classList.contains('honeypot')) el.inert = locked; });
+    nameHint.hidden = !locked;
+    $('submitBtn').disabled = locked;
   }
+  nameState('');
   function checkEarlierReply() {
     const name = cleanName();
     if (!dedupeReady || preview || name.split(' ').length < 2) return Promise.resolve();
@@ -394,7 +404,7 @@
         returning(true);
       } catch {
         lookedUp = '';
-        nameState(''); // could not check (no signal): let them continue normally
+        nameState('skip'); // could not check (no signal): let them continue normally
       } finally {
         if (checking === job) checking = null;
       }
