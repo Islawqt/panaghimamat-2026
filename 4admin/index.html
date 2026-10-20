@@ -268,8 +268,8 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
 .presence-item .detail{white-space:normal}
 .presence-item .officer-counts strong{font-size:1.45rem}
 </style>
-<script src="config.js" defer></script>
-<script src="assets/admin.js?v=20261020-no-admin" defer></script>
+<!-- Files load with this deploy's time as their version, so nobody needs a hard refresh after an update. -->
+<script>(function(d){var v=Date.parse(d.lastModified)||Date.now();[["j","config.js"],["j","assets/admin.js"],["j","assets/update.js"]].forEach(function(f){d.write(f[0]=="c"?'<link rel="stylesheet" href="'+f[1]+'?v='+v+'">':'<script src="'+f[1]+'?v='+v+'" defer><\/script>')})})(document)</script>
 </head>
 <body>
 <header class="top">

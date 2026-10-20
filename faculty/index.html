@@ -24,11 +24,8 @@
   <link rel="preload" href="assets/fonts/eb-garamond-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/cormorant-garamond-latin-500-italic.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/fonts/fonts.css?v=1">
-  <link rel="stylesheet" href="styles.css?v=20261014-plain">
-  <script src="config.js" defer></script>
-  <script src="assets/vendor/qrcode.js" defer></script>
-  <script src="assets/ticket.js?v=20261014-owner" defer></script>
-  <script src="script.js?v=20261020-rsvp-lookup-fix" defer></script>
+  <!-- Files load with this deploy's time as their version, so nobody needs a hard refresh after an update. -->
+  <script>(function(d){var v=Date.parse(d.lastModified)||Date.now();[["c","styles.css"],["j","config.js"],["j","assets/vendor/qrcode.js"],["j","assets/ticket.js"],["j","script.js"],["j","assets/update.js"]].forEach(function(f){d.write(f[0]=="c"?'<link rel="stylesheet" href="'+f[1]+'?v='+v+'">':'<script src="'+f[1]+'?v='+v+'" defer><\/script>')})})(document)</script>
 </head>
 <body data-audience="faculty">
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">

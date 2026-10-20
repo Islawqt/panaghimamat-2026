@@ -159,9 +159,8 @@ h1 em{color:var(--gold-soft);font-style:italic}
 .statusbtn.away i{background:#e0a33a;box-shadow:0 0 8px #e0a33a}
 .statusbtn.away{color:var(--gold-soft)}
 </style>
-<script src="config.js" defer></script>
-<script src="assets/vendor/jsQR.js" defer></script>
-<script src="assets/scanner.js?v=20261020-hb30" defer></script>
+<!-- Files load with this deploy's time as their version, so nobody needs a hard refresh after an update. -->
+<script>(function(d){var v=Date.parse(d.lastModified)||Date.now();[["j","config.js"],["j","assets/vendor/jsQR.js"],["j","assets/scanner.js"],["j","assets/update.js"]].forEach(function(f){d.write(f[0]=="c"?'<link rel="stylesheet" href="'+f[1]+'?v='+v+'">':'<script src="'+f[1]+'?v='+v+'" defer><\/script>')})})(document)</script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><filter id="deckle" x="-3%" y="-3%" width="106%" height="106%"><feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/></filter></defs></svg>
