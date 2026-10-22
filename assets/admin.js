@@ -198,20 +198,20 @@
     }
   }
 
-  async function refreshAttendance() {
+  async function refreshAttendance(auto) {
     if (!credentials || refreshing) return;
     refreshing=true;
-    const btn=$('refreshButton');btn.disabled=true;btn.textContent='Refreshing…';
+    const btn=$('refreshButton');if(auto!==true){btn.disabled=true;btn.textContent='Refreshing…';}
     try {
       const d=await request({action:'attendance',...session()},45000);
       if (!d.ok) throw new Error(d.message||'Unable to load guest attendance');
       if (!Array.isArray(d.guests)) throw new Error('Unexpected attendance data');
       guests=d.guests;
-      if(d.window) renderWindow(d.window);
+      if(d.window && !dirty) renderWindow(d.window); // never overwrite unsaved schedule edits
       stats(); renderGuests(); renderOfficerActivity();
       const time=new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'Asia/Manila'}).format(new Date());
       $('lastUpdated').textContent='Attendance refreshed · '+time;
-      $('guestUpdate').textContent='Updated '+time+' · Tap Refresh for latest';
+      $('guestUpdate').textContent='Updated '+time+' · refreshes every 20 seconds';
       notice($('dashboardError'),'');
     }catch(err){
       notice($('dashboardError'),err.message && !err.message.startsWith('HTTP ') && err.name!=='AbortError' ? err.message : friendly(err),'error');
@@ -416,7 +416,7 @@
     finally{btn.disabled=false;}
   });
 
-  $('refreshButton').addEventListener('click',refreshAttendance);
+  $('refreshButton').addEventListener('click',()=>refreshAttendance());
   ['search','group','state'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',renderGuests));
   // Read-only refresh. A failed poll never commits a change or discards unsaved edits.
   setInterval(async ()=>{
@@ -426,11 +426,11 @@
       if(response.ok){const data=await response.json();if(data?.window)renderWindow(data.window);}
     }catch{}
   },60000);
-  // Attendance snapshots refresh every two minutes only while this Admin tab is visible.
+  // Attendance and each officer's scan counts refresh every 20 seconds while this Admin tab is visible.
   // Server remains the source of truth; this poll never changes attendance records.
   setInterval(()=>{
-    if (credentials && !document.hidden && !refreshing && !dirty) refreshAttendance();
-  },120000);
+    if (credentials && !document.hidden && !refreshing) refreshAttendance(true);
+  },20000);
   setInterval(()=>{if(credentials && !document.hidden) void probePresence();},60000);
   // Officer status (Active / On break / Offline) refreshes every 15 seconds.
   setInterval(()=>{if(credentials && !document.hidden) void refreshPresence();},15000);

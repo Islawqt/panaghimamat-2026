@@ -23,7 +23,6 @@
     hideResult();
     $('chooseCheckin').setAttribute('aria-pressed', String(m === 'checkin'));
     $('chooseCheckout').setAttribute('aria-pressed', String(m === 'checkout'));
-    $('manualAction').textContent = m === 'checkout' ? 'Check out' : 'Check in';
     drawList();
   }
   function updateWindow(w) {
@@ -433,12 +432,4 @@
     $('listTitle').textContent = listGroup === 'faculty' ? 'Faculty attendance' : 'Student attendance';
     drawList();
   }));
-
-  /* Manual entry when a QR will not scan (cracked screen, low brightness). */
-  $('typeBtn').addEventListener('click', () => { $('typeForm').hidden = !$('typeForm').hidden; if (!$('typeForm').hidden) $('typeInput').focus(); });
-  $('typeForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const typed = $('typeInput').value.trim();
-    if (typed) { check(typed); $('typeInput').value = ''; $('typeForm').hidden = true; }
-  });
 })();
