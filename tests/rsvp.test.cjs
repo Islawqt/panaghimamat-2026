@@ -82,7 +82,7 @@ function backend({ legacy = false } = {}) {
   vm.createContext(context);
   vm.runInContext(readFileSync(join(backendDir, 'QR.gs'), 'utf8'), context);
   vm.runInContext(readFileSync(join(backendDir, 'Code.gs'), 'utf8'), context);
-  return { sheets, attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, checkout: context.checkout_, heartbeat: context.scannerHeartbeat_, presence: context.officerPresence_, helperFind: context.helperFind_, helperSend: context.helperSend_, emailRequests: context.emailRequests_, reviewEmail: context.reviewEmail_, props, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
+  return { sheets, attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, checkout: context.checkout_, heartbeat: context.scannerHeartbeat_, presence: context.officerPresence_, helperFind: context.helperFind_, helperSend: context.helperSend_, emailRequests: context.emailRequests_, reviewEmail: context.reviewEmail_, addGuest: context.addGuest_, props, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
 
@@ -510,5 +510,35 @@ test('guest helper: find by name, resend to the same email, a new email waits fo
   r = b.helperSend({ name: 'No Mail Teacher', group: 'faculty', email: 'nm@x.com' });
   assert.equal(r.saved, true, JSON.stringify(r));
   assert.equal(b.faculty.rows[5][b.faculty.rows[4].indexOf('Email')], 'nm@x.com');
+  assert.equal(b.locked, false);
+});
+
+test('walk-in guests: the President adds a paid guest, the ticket is emailed and they can be checked in', () => {
+  const b = backend();
+  b.sheets.Officers.rows[5][3] = 'President';
+  b.props.PH26_ATTENDANCE_SCHEDULE_2026_10_23 = JSON.stringify({ checkinOpens: '12:00', checkinCloses: '17:00', checkoutOpens: '16:00', checkoutCloses: '17:30' });
+  const ana = { user: 'ana', pass: 'pw-ana' };
+  assert.equal(b.addGuest({ user: 'ben', pass: 'pw-ben', group: 'student', name: 'Walk In', section: 'BSIS 1A' }).ok, false, 'officers cannot add guests');
+  assert.equal(b.addGuest({ ...ana, group: 'student', name: 'Walk', section: 'BSIS 1A' }).ok, false, 'full name needed');
+  assert.equal(b.addGuest({ ...ana, group: 'student', name: 'Walk In', section: '' }).ok, false, 'section needed');
+  assert.equal(b.addGuest({ ...ana, group: 'student', name: 'Walk In', section: 'bsis 1a', email: 'w@gmail.con' }).ok, false, 'typo refused');
+  const r = b.addGuest({ ...ana, group: 'student', name: 'Walk In', section: 'bsis 1a', email: 'W@x.com', checkIn: true });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.match(r.ref, /^PH26-[A-F0-9]{32}$/);
+  assert.equal(r.sent, true); assert.equal(r.checkedIn, true);
+  const sh = b.students, h = sh.rows[4], row = sh.rows[5];
+  assert.equal(row[h.indexOf('Name')], 'Walk In');
+  assert.equal(row[h.indexOf('Year & Section')], 'BSIS 1A');
+  assert.equal(row[h.indexOf('Payment')], 'Paid ✓');
+  assert.equal(row[h.indexOf('Contribution')], 550);
+  assert.equal(row[h.indexOf('Email')], 'w@x.com');
+  assert.match(row[h.indexOf('Ticket sent')], /w@x.com/);
+  assert.match(row[h.indexOf('Checked in')], /from list/);
+  assert.equal(b.mails.at(-1).to, 'w@x.com');
+  const again = b.addGuest({ ...ana, group: 'student', name: 'In Walk', section: 'BSIS 1A' });
+  assert.equal(again.ok, false); assert.match(again.message, /already has a reply/);
+  const f = b.addGuest({ ...ana, group: 'faculty', name: 'Teacher Walk' });
+  assert.equal(f.ok, true, JSON.stringify(f)); assert.equal(f.sent, false);
+  assert.equal(b.faculty.rows[5][b.faculty.rows[4].indexOf('Contribution')], 400);
   assert.equal(b.locked, false);
 });

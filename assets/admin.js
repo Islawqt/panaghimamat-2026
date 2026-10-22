@@ -271,6 +271,7 @@
       const r=await fetch(API+'?action=ping',{credentials:'omit',cache:'no-store'});
       const d=await r.json();
       presenceSupported=!!(d.features&&d.features.officerPresence);
+      walkinSupported=!!(d.features&&d.features.addGuest);$('walkinPanel').hidden=!walkinSupported;
       if(d.window)renderWindow(d.window);
       renderPresence();
       if(presenceSupported)await refreshPresence();
@@ -319,6 +320,35 @@
   }
   setInterval(()=>{if(credentials&&!document.hidden)void refreshEmailRequests();},60000);
 
+
+  /* Walk-in guests: paid in person but never replied. Saved as attending and Paid; ticket emailed when an email is given. */
+  let walkinSupported=false;
+  const drawWalkinGroup=()=>{const st=$('wGroup').value==='student';$('wSectionField').hidden=!st;$('wSave').textContent='Add guest · Paid ₱'+(st?550:400);};
+  $('wGroup').addEventListener('change',drawWalkinGroup);
+  drawWalkinGroup();
+  $('walkinForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const group=$('wGroup').value,name=$('wName').value.trim().replace(/\s+/g,' '),section=$('wSection').value.trim(),email=$('wEmail').value.trim().toLowerCase();
+    const fb=$('walkinFeedback');
+    if(name.split(' ').length<2)return notice(fb,'Type the full name (first and last name).','error');
+    if(group==='student'&&section.length<2)return notice(fb,'Type the year and section, e.g. BSIS 4A.','error');
+    if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return notice(fb,'That email doesn’t look right.','error');
+    const btn=$('wSave');btn.disabled=true;btn.textContent='Adding…';notice(fb,'');
+    try{
+      const d=await request({action:'addGuest',...session(),group,name,section,email,checkIn:$('wCheckin').checked},45000);
+      if(!d.ok)return notice(fb,d.message||'Could not add the guest.','error');
+      const parts=[name+' added as paid.'];
+      parts.push(d.sent?'Ticket emailed to '+email+'.':email?'Ticket will be emailed within 5 minutes.':'No email, so show them the ticket below.');
+      if($('wCheckin').checked)parts.push(d.checkedIn?'Checked in.':'Not checked in: '+(d.checkinMessage||'try from the scanner list.'));
+      notice(fb,parts.join(' '),'success');
+      const a=document.createElement('a');a.href='ticket/?ref='+encodeURIComponent(d.ref);a.target='_blank';a.rel='noopener';a.textContent='Open ticket ↗';
+      fb.append(' ',a);
+      $('wName').value='';$('wSection').value='';$('wEmail').value='';$('wCheckin').checked=false;
+      void refreshAttendance(true);
+    }catch(err){notice(fb,friendly(err)+' Check the Sheet before adding again, it may have saved.','error');}
+    finally{btn.disabled=false;drawWalkinGroup();}
+  });
+
   $('loginForm').addEventListener('submit',async e=>{
     e.preventDefault();if(credentials)return;
     const user=$('user').value.trim().toLowerCase(),pass=$('pass').value;
@@ -348,7 +378,7 @@
   function signOut(){
     credentials=null;adminKey='';current=null;guests=[];dirty=false;presence=[];activity=[];dateSupported=false;presenceSupported=false;
     renderPresence();
-    $('emailPanel').hidden=true;$('emailList').replaceChildren();notice($('emailFeedback'),'');
+    $('emailPanel').hidden=true;$('walkinPanel').hidden=true;notice($('walkinFeedback'),'');$('emailList').replaceChildren();notice($('emailFeedback'),'');
     $('user').value='';$('pass').value='';$('loginScreen').hidden=false;
     $('dashboard').hidden=true;$('signOut').hidden=true;
     $('topName').textContent='Private officer administration';$('guestList').replaceChildren();

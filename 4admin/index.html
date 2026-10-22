@@ -255,6 +255,9 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
 @media(max-width:580px){.schedule-groups{gap:10px}.schedule-group{padding:13px}.schedule-group .windows{grid-template-columns:repeat(2,minmax(0,1fr))}
   .schedule-quick{gap:6px}.schedule-actions .button{flex:1 1 145px}.schedule-preview{font-size:.94rem}}
 
+.check-line{display:flex;align-items:center;gap:10px;font-weight:500;margin:0 0 16px}
+.check-line input{width:20px;height:20px;min-height:0}
+.notice a{color:inherit;font-weight:600}
 .email-list{padding:4px 20px}
 .email-req{display:grid;gap:8px;padding:14px 0;border-bottom:1px solid var(--line)}
 .email-req:last-child{border-bottom:0}
@@ -337,6 +340,18 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
             <p class="presence-help">Ang status (Active / On break) ang officer mismo mo-set sa iyang scanner. Offline kung naka-lock or wala na-open sa 2 minutes.</p>
           </div>
           <p class="activity-caveat">Ang pasabot sa “recently scanning” kay naa kay na-record nga scan around 15 minutes, dili kay live login status. Ang mga officers lang nga naay na-record nga attendance or scanned ang makita diri.</p>
+        </section>
+        <section class="panel" id="walkinPanel" aria-labelledby="walkinTitle" hidden>
+          <div class="panel-head"><p class="panel-kicker">Paid in person</p><h2 id="walkinTitle">Add a walk-in guest</h2><p>Para sa mga nibayad diretso pero wala nag-reply sa invitation. Ma-save sila as attending ug Paid ✓. Kung naay email, ma-send dayon ang QR ticket.</p></div>
+          <form class="panel-content" id="walkinForm" novalidate>
+            <div class="field"><label for="wGroup">Guest type</label><select id="wGroup"><option value="student">Student · ₱550</option><option value="faculty">Faculty · ₱400</option></select></div>
+            <div class="field"><label for="wName">Full name</label><input id="wName" maxlength="100" autocomplete="off" placeholder="e.g. Juan Dela Cruz"></div>
+            <div class="field" id="wSectionField"><label for="wSection">Year &amp; section</label><input id="wSection" maxlength="20" autocomplete="off" autocapitalize="characters" placeholder="e.g. BSIS 4A"></div>
+            <div class="field"><label for="wEmail">Email for the QR ticket <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="wEmail" type="email" inputmode="email" maxlength="120" autocomplete="off" placeholder="e.g. name@gmail.com"></div>
+            <label class="check-line"><input type="checkbox" id="wCheckin"> Check them in now (they’re here)</label>
+            <button class="button full" type="submit" id="wSave">Add guest · Paid</button>
+            <p id="walkinFeedback" class="notice" hidden></p>
+          </form>
         </section>
         <section class="panel" id="emailPanel" aria-labelledby="emailTitle" hidden>
           <div class="panel-head panel-head-split">
