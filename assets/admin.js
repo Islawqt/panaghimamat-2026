@@ -277,6 +277,48 @@
     }catch{}
   }
 
+
+  /* Email requests from the Guest helper. Approving saves the new email and sends the ticket there. */
+  let emailBusy=false;
+  function renderEmailRequests(list){
+    const root=$('emailList');root.replaceChildren();
+    $('emailCount').textContent=list.length+' waiting';$('emailCount').classList.toggle('idle',!list.length);
+    if(!list.length){const li=document.createElement('li');li.className='empty';li.textContent='No requests.';root.append(li);return;}
+    list.forEach(r=>{
+      const li=document.createElement('li');li.className='email-req';
+      const head=document.createElement('div');
+      const name=document.createElement('strong');name.textContent=r.name;
+      const meta=document.createElement('small');meta.textContent=(r.group==='faculty'?'Faculty':'Student'+(r.section?' · '+r.section:''))+(r.when?' · asked '+r.when:'')+(r.paid?'':' · not paid yet');
+      const oldE=document.createElement('small');oldE.innerHTML='Old: <span class="old"></span>';oldE.querySelector('span').textContent=r.oldEmail||'—';
+      const newE=document.createElement('small');newE.innerHTML='New: <span class="new"></span>';newE.querySelector('span').textContent=r.newEmail;
+      head.append(name,meta,oldE,newE);
+      const acts=document.createElement('div');acts.className='acts';
+      const yes=document.createElement('button');yes.type='button';yes.className='button';yes.textContent=r.paid?'Approve & send':'Approve';
+      const no=document.createElement('button');no.type='button';no.className='button secondary';no.textContent='Decline';
+      const act=async(approve,btn)=>{
+        if(btn.dataset.sure!=='1'){btn.dataset.sure='1';btn.textContent=approve?'Tap again to approve':'Tap again to decline';setTimeout(()=>{btn.dataset.sure='';btn.textContent=approve?(r.paid?'Approve & send':'Approve'):'Decline';},4000);return;}
+        yes.disabled=no.disabled=true;
+        try{
+          const d=await request({action:'reviewEmail',...session(),group:r.group,row:r.row,newEmail:r.newEmail,approve},45000);
+          notice($('emailFeedback'),d.ok?(d.declined?'Declined. '+r.name+' keeps the old email.':d.sent?'Approved. Ticket sent to '+r.newEmail+'.':'Approved. The ticket goes to '+r.newEmail+' once paid.'):(d.message||'Could not update.'),d.ok?'success':'error');
+        }catch(err){notice($('emailFeedback'),friendly(err),'error');}
+        await refreshEmailRequests();
+      };
+      yes.addEventListener('click',()=>act(true,yes));no.addEventListener('click',()=>act(false,no));
+      acts.append(yes,no);li.append(head,acts);root.append(li);
+    });
+  }
+  async function refreshEmailRequests(){
+    if(!credentials||emailBusy||document.hidden)return;
+    emailBusy=true;
+    try{
+      const d=await request({action:'emailRequests',...session()},30000);
+      if(d.ok&&Array.isArray(d.requests)){$('emailPanel').hidden=false;renderEmailRequests(d.requests);}
+    }catch{}
+    finally{emailBusy=false;}
+  }
+  setInterval(()=>{if(credentials&&!document.hidden)void refreshEmailRequests();},60000);
+
   $('loginForm').addEventListener('submit',async e=>{
     e.preventDefault();if(credentials)return;
     const user=$('user').value.trim().toLowerCase(),pass=$('pass').value;
@@ -298,6 +340,7 @@
       renderWindow(d.window);
       await refreshAttendance();
       await probePresence();
+      void refreshEmailRequests();
     }catch(err){authError(friendly(err));}
     finally{btn.disabled=false;btn.textContent='Sign in to administration';}
   });
@@ -305,6 +348,7 @@
   function signOut(){
     credentials=null;adminKey='';current=null;guests=[];dirty=false;presence=[];activity=[];dateSupported=false;presenceSupported=false;
     renderPresence();
+    $('emailPanel').hidden=true;$('emailList').replaceChildren();notice($('emailFeedback'),'');
     $('user').value='';$('pass').value='';$('loginScreen').hidden=false;
     $('dashboard').hidden=true;$('signOut').hidden=true;
     $('topName').textContent='Private officer administration';$('guestList').replaceChildren();

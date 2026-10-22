@@ -82,7 +82,7 @@ function backend({ legacy = false } = {}) {
   vm.createContext(context);
   vm.runInContext(readFileSync(join(backendDir, 'QR.gs'), 'utf8'), context);
   vm.runInContext(readFileSync(join(backendDir, 'Code.gs'), 'utf8'), context);
-  return { sheets, attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, checkout: context.checkout_, heartbeat: context.scannerHeartbeat_, presence: context.officerPresence_, props, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
+  return { sheets, attendance: context.attendance_, undo: context.undoCheckin_, status: context.status_, resend: context.resendTicket_, lookup: context.lookup_, addEmail: context.addEmail_, send: context.sendPendingTickets, setupMail: context.setupTicketEmails, mails, triggers, setQuota: (n) => { quota = n; }, save: context.save_, ticket: context.ticket_, checkin: context.checkin_, officer: context.officer_, checkout: context.checkout_, heartbeat: context.scannerHeartbeat_, presence: context.officerPresence_, helperFind: context.helperFind_, helperSend: context.helperSend_, emailRequests: context.emailRequests_, reviewEmail: context.reviewEmail_, props, students, faculty, get uploads() { return uploads; }, get locked() { return locked; }, get flushes() { return flushes; }, failAfterAppend: () => { failAfterAppend = true; }, holdLock: () => { locked = true; } };
 }
 const reply = (group, extra = {}) => ({ group, fullName: 'Test Guest', section: 'BSIS 4A', attendance: 'Attending', paymentMethod: 'Cash', requestId: crypto.randomUUID(), ...extra });
 
@@ -464,4 +464,51 @@ test('a wrong check-out can be undone; officers set Active / On break for the Ad
   p = b.presence(ana);
   assert.equal(p.officers.find((o) => o.username === 'ben').online, false);
   assert.equal(b.presence({ user: 'ben', pass: 'pw-ben' }).ok, false, 'only the Admin sees officer status');
+});
+
+test('guest helper: find by name, resend to the same email, a new email waits for the Admin', () => {
+  const b = backend(), sh = b.students, h = sh.rows[4];
+  b.sheets.Officers.rows[5][3] = 'President';
+  b.save(reply('student', { fullName: 'Joseph Clarence Solatorio', email: 'joseph@gmail.com' }));
+  sh.rows[5][sh.rows[4].indexOf('Email')] = 'joseph@yahoo.com'; // wrong email from the reply
+  sh.rows[5][h.indexOf('Payment')] = 'Paid ✓';
+  b.send();
+  assert.equal(b.helperFind({ name: 'Joseph' }).ok, false, 'needs a full name');
+  const f = b.helperFind({ name: 'solatorio joseph clarence' });
+  assert.equal(f.found, true);
+  assert.equal(f.guests[0].email, 'jo****@yahoo.com', 'email is masked');
+  assert.equal(JSON.stringify(f).includes('joseph@yahoo.com'), false);
+  // Same email: sent again right away, then a short wait.
+  let r = b.helperSend({ name: 'Joseph Clarence Solatorio', group: 'student', email: 'Joseph@Yahoo.com' });
+  assert.equal(r.sent, true, JSON.stringify(r));
+  assert.equal(b.mails.at(-1).to, 'joseph@yahoo.com');
+  assert.match(b.helperSend({ name: 'Joseph Clarence Solatorio', group: 'student' }).message, /10 minutes/);
+  // Typos are refused; a new email only becomes a request.
+  assert.equal(b.helperSend({ name: 'Joseph Clarence Solatorio', group: 'student', email: 'j@gmail.con' }).ok, false);
+  const mails = b.mails.length;
+  r = b.helperSend({ name: 'Joseph Clarence Solatorio', group: 'student', email: 'joseph@gmail.com' });
+  assert.equal(r.pending, true, JSON.stringify(r));
+  assert.equal(b.mails.length, mails, 'nothing sent to an unapproved email');
+  assert.equal(sh.rows[5][sh.rows[4].indexOf('Email')], 'joseph@yahoo.com');
+  assert.equal(b.helperFind({ name: 'Joseph Clarence Solatorio' }).guests[0].pending, 'jo****@gmail.com');
+  // Only the President sees and approves requests.
+  assert.equal(b.emailRequests({ user: 'ben', pass: 'pw-ben' }).ok, false);
+  const ana = { user: 'ana', pass: 'pw-ana' };
+  const q = b.emailRequests(ana);
+  assert.equal(q.ok, true, JSON.stringify(q));
+  assert.equal(q.requests.length, 1);
+  assert.equal(q.requests[0].newEmail, 'joseph@gmail.com');
+  assert.equal(b.reviewEmail({ ...ana, group: 'student', row: q.requests[0].row, newEmail: 'other@x.com', approve: true }).ok, false, 'stale request refused');
+  r = b.reviewEmail({ ...ana, group: 'student', row: q.requests[0].row, newEmail: 'joseph@gmail.com', approve: true });
+  assert.equal(r.sent, true, JSON.stringify(r));
+  assert.equal(b.mails.at(-1).to, 'joseph@gmail.com');
+  assert.equal(sh.rows[5][sh.rows[4].indexOf('Email')], 'joseph@gmail.com');
+  assert.equal(b.emailRequests(ana).requests.length, 0);
+  assert.match(sh.rows[5][sh.rows[4].indexOf('Ticket sent')], /joseph@gmail.com/);
+  // Declined replies get no ticket; a guest with no email can add one.
+  b.save(reply('faculty', { fullName: 'No Mail Teacher', paymentMethod: 'Cash' }));
+  r = b.helperSend({ name: 'No Mail Teacher', group: 'faculty', email: 'nm@x.com' });
+  assert.equal(r.saved, true, JSON.stringify(r));
+  assert.equal(b.faculty.rows[5][b.faculty.rows[4].indexOf('Email')], 'nm@x.com');
+  assert.equal(b.locked, false);
 });

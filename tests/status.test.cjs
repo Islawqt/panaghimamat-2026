@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const source = readFileSync(join(__dirname, '../assets/status.js'), 'utf8');
 const endpoint = 'https://script.google.com/macros/s/test-only/exec';
 const response = (data, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => data });
-const absent = () => response({ ok: true, found: false, replies: [] });
+const absent = () => response({ ok: true, found: false, guests: [] });
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 class Element {
@@ -35,7 +35,7 @@ class Element {
 function page(fetchReply, { abortController = AbortController, referrer = '' } = {}) {
   let now = 0, nextTimer = 0;
   const timers = new Map(), requests = [];
-  const elements = Object.fromEntries(['statusForm', 'statusEmail', 'statusError', 'emailCheck', 'emailCheckText', 'statusBtn', 'statusResult'].map((id) => [id, new Element()]));
+  const elements = Object.fromEntries(['statusForm', 'guestName', 'statusError', 'emailCheck', 'emailCheckText', 'statusBtn', 'statusResult', 'tabFind', 'tabGuide', 'panelFind', 'panelGuide'].map((id) => [id, new Element()]));
   const back = new Element('a');
   const document = {
     referrer,
@@ -62,7 +62,7 @@ function page(fetchReply, { abortController = AbortController, referrer = '' } =
   vm.runInContext(source, context);
   return {
     elements, requests, timers, back,
-    submit(email = 'test@example.invalid') { elements.statusEmail.value = email; return elements.statusForm.fire('submit'); },
+    submit(name = 'Test Guest') { elements.guestName.value = name; return elements.statusForm.fire('submit'); },
     advance(ms) {
       const until = now + ms;
       for (;;) {
@@ -84,9 +84,9 @@ function find(root, className) {
 test('status lookup makes one direct request with no startup ping or artificial wait', async () => {
   const p = page(absent);
   assert.equal(p.requests.length, 0);
-  await p.submit('  Guest@Example.Invalid  ');
+  await p.submit('  Juan   Dela Cruz  ');
   assert.equal(p.requests.length, 1);
-  assert.deepEqual(p.requests[0].body, { action: 'status', email: 'guest@example.invalid' });
+  assert.deepEqual(p.requests[0].body, { action: 'helperFind', name: 'Juan Dela Cruz' });
   assert.equal(p.requests[0].url, endpoint);
   assert.equal(p.requests[0].options.credentials, 'omit');
   assert.equal(p.requests[0].options.redirect, 'follow');
@@ -94,7 +94,7 @@ test('status lookup makes one direct request with no startup ping or artificial 
   assert.equal(Object.keys(p.requests[0].options.headers).length, 1);
   assert.equal(p.requests[0].options.cache, 'no-store');
   assert.equal(p.requests[0].options.referrerPolicy, 'no-referrer');
-  assert.match(p.elements.statusResult.textContent, /No reply uses this email/);
+  assert.match(p.elements.statusResult.textContent, /couldn’t find this name/);
   assert.equal(p.elements.statusBtn.disabled, false);
   assert.equal(p.timers.size, 0);
 });
@@ -108,7 +108,7 @@ test('one transient connection failure retries the read and shows the result', a
   p.advance(250);
   await pending;
   assert.equal(p.requests.length, 2);
-  assert.match(p.elements.statusResult.textContent, /No reply uses this email/);
+  assert.match(p.elements.statusResult.textContent, /couldn’t find this name/);
   assert.equal(p.elements.statusError.hidden, true);
 });
 
@@ -123,7 +123,7 @@ test('failed checks do not poison later submissions or cause unlimited retries',
   offline = false;
   await p.submit();
   assert.equal(p.requests.length, 3);
-  assert.match(p.elements.statusResult.textContent, /No reply uses this email/);
+  assert.match(p.elements.statusResult.textContent, /couldn’t find this name/);
   assert.equal(p.elements.statusError.hidden, true);
 });
 
@@ -139,7 +139,7 @@ for (const abortController of [AbortController, undefined]) {
     assert.equal(p.requests.length, 1);
     assert.match(p.elements.statusError.textContent, /took too long/);
     assert.equal(p.elements.statusBtn.disabled, false);
-    assert.equal(p.elements.statusEmail.readOnly, false);
+    assert.equal(p.elements.guestName.readOnly, false);
     assert.equal(p.elements.statusForm.attributes['aria-busy'], 'false');
     assert.equal(p.timers.size, 0);
   });
@@ -161,23 +161,23 @@ test('a late response after a timeout cannot overwrite a newer lookup', async ()
   let finishOld;
   const p = page((_, attempt) => attempt === 1 ? new Promise((resolve) => { finishOld = resolve; }) : absent(), { abortController: null });
   const old = p.submit(); p.advance(30000); await old;
-  await p.submit('new@example.invalid');
-  finishOld(response({ ok: true, found: true, replies: [{ group: 'faculty', stage: 'verified', name: 'Old result' }] }));
+  await p.submit('New Guest');
+  finishOld(response({ ok: true, found: true, guests: [{ group: 'faculty', stage: 'verified', name: 'Old result' }] }));
   await flush();
-  assert.match(p.elements.statusResult.textContent, /No reply uses this email/);
+  assert.match(p.elements.statusResult.textContent, /couldn’t find this name/);
   assert.equal(p.elements.statusResult.textContent.includes('Old result'), false);
 });
 
-test('invalid email and duplicate submits do not send extra requests', async () => {
+test('one-word names and duplicate submits do not send extra requests', async () => {
   let resolve;
   const p = page(() => new Promise((r) => { resolve = r; }));
-  await p.submit('not-an-email');
+  await p.submit('Juan');
   assert.equal(p.requests.length, 0);
-  assert.equal(p.elements.statusEmail.focused, true);
+  assert.equal(p.elements.guestName.focused, true);
   const pending = p.submit();
   await p.submit();
   assert.equal(p.requests.length, 1);
-  assert.equal(p.elements.statusEmail.readOnly, true);
+  assert.equal(p.elements.guestName.readOnly, true);
   resolve(absent()); await pending;
   assert.equal(p.elements.statusBtn.disabled, false);
 });
@@ -191,15 +191,15 @@ test('a backend validation message is shown without retrying it', async () => {
 
 for (const broken of [
   () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('HTML instead of JSON'); } }),
-  () => response({ ok: true, receiptId: 'not-a-status-result' }),
-  () => response({ ok: true, found: true, replies: [{ group: 'faculty', stage: 'unknown' }] })
+  () => response({ ok: true, receiptId: 'not-a-helper-result' }),
+  () => response({ ok: true, found: true, guests: [{ group: 'faculty', stage: 'unknown' }] })
 ]) {
   test('unexpected responses are retried once and never shown as a missing guest record', async () => {
     const p = page(broken);
     const pending = p.submit();
     await flush(); p.advance(250); await pending;
     assert.equal(p.requests.length, 2);
-    assert.match(p.elements.statusError.textContent, /could not read your status/);
+    assert.match(p.elements.statusError.textContent, /could not read your reply/);
     assert.equal(p.elements.statusResult.children.length, 0);
   });
 }
@@ -208,7 +208,7 @@ test('temporary server errors retry, while access errors remain visible', async 
   const p = page((_, attempt) => attempt === 1 ? response({}, 503) : absent());
   const pending = p.submit(); await flush(); p.advance(250); await pending;
   assert.equal(p.requests.length, 2);
-  assert.match(p.elements.statusResult.textContent, /No reply uses this email/);
+  assert.match(p.elements.statusResult.textContent, /couldn’t find this name/);
   const denied = page(() => response({}, 403));
   await denied.submit();
   assert.equal(denied.requests.length, 1);
@@ -218,7 +218,7 @@ test('temporary server errors retry, while access errors remain visible', async 
 for (const group of ['student', 'faculty']) {
   for (const stage of ['declined', 'verified', 'checking', 'unpaid']) {
     test(`${group}: ${stage} status still renders with browser storage blocked`, async () => {
-      const p = page(() => response({ ok: true, found: true, replies: [{ group, stage, name: 'Test Guest', section: group === 'student' ? 'BSIS 4A' : '', repliedOn: 'Oct 16', method: 'GCash', ticketSent: '', checkedIn: false }] }));
+      const p = page(() => response({ ok: true, found: true, guests: [{ group, stage, name: 'Test Guest', email: 'te****@x.com', section: group === 'student' ? 'BSIS 4A' : '', repliedOn: 'Oct 16', method: 'GCash', ticketSent: '', checkedIn: false }] }));
       await p.submit();
       const text = p.elements.statusResult.textContent;
       assert.match(text, /Test Guest/);
@@ -232,15 +232,15 @@ for (const group of ['student', 'faculty']) {
 }
 
 test('ticket resending remains an explicit, single request after a successful lookup', async () => {
-  const p = page((request) => request.body.action === 'status'
-    ? response({ ok: true, found: true, replies: [{ group: 'faculty', stage: 'verified', name: 'Test Guest', repliedOn: 'Oct 16', ticketSent: 'Oct 16', checkedIn: false }] })
+  const p = page((request) => request.body.action === 'helperFind'
+    ? response({ ok: true, found: true, guests: [{ group: 'faculty', stage: 'verified', name: 'Test Guest', email: 'te****@x.com', repliedOn: 'Oct 16', ticketSent: 'Oct 16', checkedIn: false }] })
     : Promise.reject(new TypeError('Response lost')));
   await p.submit();
-  const button = find(p.elements.statusResult, 'st-resend');
+  const button = find(p.elements.statusResult, 'gh-again');
   assert.ok(button);
   await button.fire('click');
   assert.equal(p.requests.length, 2);
-  assert.deepEqual(p.requests[1].body, { action: 'resend', email: 'test@example.invalid' });
+  assert.deepEqual(p.requests[1].body, { action: 'helperSend', name: 'Test Guest', group: 'faculty', email: '' });
   assert.equal(button.disabled, false);
   assert.match(p.elements.statusResult.textContent, /No connection/);
   assert.equal(p.timers.size, 0);

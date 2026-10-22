@@ -396,7 +396,7 @@
           return;
         }
         $('dupText').innerHTML = d.hasEmail
-          ? `You already replied${when}, and we have your email. Your QR ticket is sent there once your payment is verified. Check Spam too. <a href="status/">Check your status</a>. To change your reply, message an SSC officer.`
+          ? `You already replied${when}, and we have your email. Your QR ticket is sent there once your payment is verified. Check Spam too. <a href="status/">Get help with your ticket</a>. To change your reply, message an SSC officer.`
           : `You already replied${when}. No need to fill in the form again. Just add your email so we can send your QR ticket. It is shared only with the SSC.`;
         $('dupEmailRow').hidden = !!d.hasEmail;
         $('dupNotMe').hidden = false;

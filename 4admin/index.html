@@ -255,6 +255,15 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
 @media(max-width:580px){.schedule-groups{gap:10px}.schedule-group{padding:13px}.schedule-group .windows{grid-template-columns:repeat(2,minmax(0,1fr))}
   .schedule-quick{gap:6px}.schedule-actions .button{flex:1 1 145px}.schedule-preview{font-size:.94rem}}
 
+.email-list{padding:4px 20px}
+.email-req{display:grid;gap:8px;padding:14px 0;border-bottom:1px solid var(--line)}
+.email-req:last-child{border-bottom:0}
+.email-req strong{font:600 1.2rem/1.15 var(--display);color:var(--wine)}
+.email-req small{display:block;color:var(--muted);font-size:.84rem;overflow-wrap:anywhere}
+.email-req .new{color:var(--green);font-weight:600}
+.email-req .old{text-decoration:line-through}
+.email-req .acts{display:flex;gap:8px;flex-wrap:wrap}
+.email-req .acts .button{min-height:40px;padding:7px 14px;flex:1 1 120px}
 /* Event-day order: numbers, officers, guests; the schedule folds away below. */
 .stack.after{margin-top:20px}
 .schedule-panel>summary{list-style:none;cursor:pointer;display:grid;gap:8px}
@@ -328,6 +337,14 @@ body{background:radial-gradient(ellipse at 0% 10%,rgba(220,198,158,.17),transpar
             <p class="presence-help">Ang status (Active / On break) ang officer mismo mo-set sa iyang scanner. Offline kung naka-lock or wala na-open sa 2 minutes.</p>
           </div>
           <p class="activity-caveat">Ang pasabot sa “recently scanning” kay naa kay na-record nga scan around 15 minutes, dili kay live login status. Ang mga officers lang nga naay na-record nga attendance or scanned ang makita diri.</p>
+        </section>
+        <section class="panel" id="emailPanel" aria-labelledby="emailTitle" hidden>
+          <div class="panel-head panel-head-split">
+            <div><p class="panel-kicker">Guest helper</p><h2 id="emailTitle">Email requests</h2><p>Guests nga nangayo ug lain nga email para sa ilang ticket. I-check kung tinuod sila (message nila) before mo-approve. Pag approve, ma-send dayon ang ticket sa bag-ong email.</p></div>
+            <span id="emailCount" class="live-count idle">0 waiting</span>
+          </div>
+          <ul id="emailList" class="list email-list" aria-live="polite"><li class="empty">No requests.</li></ul>
+          <p id="emailFeedback" class="notice" hidden></p>
         </section>
       </div>
       <section class="panel" aria-labelledby="guestsTitle">

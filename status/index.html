@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2b070b">
   <meta name="robots" content="noindex">
-  <title>Check your status · Panaghimamat 2026</title>
+  <title>Guest helper · Panaghimamat 2026</title>
   <link rel="preconnect" href="https://script.google.com" crossorigin>
   <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
@@ -29,16 +29,89 @@
       <span class="brand brand-right"><strong>Supreme Student Council</strong><img src="assets/ssc-logo.png" alt="Supreme Student Council logo" width="34" height="34"></span>
     </header>
     <main>
-      <h1 class="page-title">Check your <em>status</em></h1>
-      <p class="lead">Type the email you used in your reply to see where your payment and QR ticket are.</p>
-      <form id="statusForm" class="paper paper-card form-card" novalidate>
-        <div class="form-field"><label for="statusEmail">Your email</label>
-          <div class="name-check" id="emailCheck"><input id="statusEmail" type="email" maxlength="120" autocomplete="email" inputmode="email" placeholder="e.g. stephen.paubapo@gmail.com" required><span class="name-check-status" aria-live="polite"><span class="name-spin" aria-hidden="true"></span><span class="name-ok" aria-hidden="true">✓</span><span id="emailCheckText"></span></span></div>
+      <h1 class="page-title">Guest <em>helper</em></h1>
+      <p class="lead">No QR ticket yet? Type your name. We’ll show where your reply is and send your ticket again.</p>
+      <div class="qr-tabs gh-tabs" role="tablist" aria-label="Guest helper">
+        <button type="button" role="tab" id="tabFind" aria-selected="true" aria-controls="panelFind">Find my ticket</button>
+        <button type="button" role="tab" id="tabGuide" aria-selected="false" aria-controls="panelGuide">Not getting it?</button>
+      </div>
+
+      <section id="panelFind" role="tabpanel" aria-labelledby="tabFind">
+        <form id="statusForm" class="paper paper-card form-card" novalidate>
+          <div class="form-field"><label for="guestName">Your full name</label>
+            <div class="name-check" id="emailCheck"><input id="guestName" type="text" maxlength="100" autocomplete="name" placeholder="e.g. Stephen Dale Paubapo" required><span class="name-check-status" aria-live="polite"><span class="name-spin" aria-hidden="true"></span><span class="name-ok" aria-hidden="true">✓</span><span id="emailCheckText"></span></span></div>
+            <small class="field-help">Type it the way you wrote it in your reply.</small>
+          </div>
+          <p class="form-error" id="statusError" role="alert" hidden></p>
+          <button class="primary-btn full" type="submit" id="statusBtn">Find me</button>
+        </form>
+        <div id="statusResult" aria-live="polite"></div>
+      </section>
+
+      <section id="panelGuide" role="tabpanel" aria-labelledby="tabGuide" hidden>
+        <div class="paper paper-card gh-guide">
+          <p class="card-label">Why didn’t my ticket arrive?</p>
+          <details class="gh-cause" open>
+            <summary><span>1</span>It went to Spam or Promotions</summary>
+            <p>This is the most common one. Your ticket comes from <b>STI SSC Valencia</b> with the subject <b>“Your Panaghimamat 2026 ticket”</b>. Follow these steps in the Gmail app:</p>
+            <ol class="gh-shots">
+              <li>
+                <div class="gh-phone" aria-hidden="true">
+                  <div class="gm-bar"><span class="gm-burger gm-hl">☰</span><span class="gm-search">Search in mail</span><span class="gm-avatar">S</span></div>
+                  <div class="gm-drawer">
+                    <p class="gm-logo">Gmail</p>
+                    <p class="gm-item">📥 Primary</p>
+                    <p class="gm-item">🏷️ Promotions</p>
+                    <p class="gm-item">✉️ Sent</p>
+                    <p class="gm-item gm-hl">⚠️ Spam</p>
+                    <p class="gm-item">🗑️ Trash</p>
+                  </div>
+                </div>
+                <p><b>Tap ☰</b> at the top left, then tap <b>Spam</b>. Check <b>Promotions</b> too.</p>
+              </li>
+              <li>
+                <div class="gh-phone" aria-hidden="true">
+                  <div class="gm-bar"><span class="gm-burger">←</span><span class="gm-title">Spam</span></div>
+                  <p class="gm-warn">Messages in Spam are deleted after 30 days.</p>
+                  <div class="gm-mail"><span class="gm-dot">P</span><div><b>Promo Deals</b><small>Win a free phone today!!!</small></div></div>
+                  <div class="gm-mail gm-hl"><span class="gm-dot gm-wine">S</span><div><b>STI SSC Valencia</b><small>Your Panaghimamat 2026 ticket</small></div></div>
+                  <div class="gm-mail"><span class="gm-dot">N</span><div><b>Newsletter</b><small>This week’s top stories</small></div></div>
+                </div>
+                <p>Find <b>STI SSC Valencia</b> and open it.</p>
+              </li>
+              <li>
+                <div class="gh-phone" aria-hidden="true">
+                  <div class="gm-bar"><span class="gm-burger">←</span><span class="gm-title">Your Panaghimamat 2026 ticket</span></div>
+                  <div class="gm-why"><b>Why is this message in spam?</b><small>It is similar to messages that were identified as spam in the past.</small><span class="gm-btn gm-hl">Report not spam</span></div>
+                  <div class="gm-ticket"><span class="gm-qr"></span><small>Panaghimamat 2026</small></div>
+                </div>
+                <p>Tap <b>Report not spam</b>. Your QR is inside. The ticket is attached too.</p>
+              </li>
+            </ol>
+            <p class="gh-tip">Can’t find it? In Gmail, search <b>Panaghimamat</b>. It finds the email in any folder.</p>
+          </details>
+          <details class="gh-cause">
+            <summary><span>2</span>A typo in your email</summary>
+            <p>One wrong letter (like <b>gmial.com</b> or <b>gmail.con</b>) sends your ticket nowhere. Use <b>Find my ticket</b>. It shows the email we have, like <b>ju****@gmail.com</b>. If it looks wrong, tap <b>Use a different email</b>. An SSC officer checks it, then your ticket is sent there right away.</p>
+          </details>
+          <details class="gh-cause">
+            <summary><span>3</span>Your payment isn’t verified yet</summary>
+            <p>The ticket is only sent after the SSC confirms your payment. <b>Find my ticket</b> shows if it is still being checked. Paid in cash? Message the Treasurer, Ms. Jhodel Aranas, or the President, Ms. Anthony Sedoro.</p>
+          </details>
+          <details class="gh-cause">
+            <summary><span>4</span>It was just sent</summary>
+            <p>Tickets go out every 5 minutes. Wait a few minutes, then pull down your inbox to refresh.</p>
+          </details>
+          <details class="gh-cause">
+            <summary><span>5</span>You’re looking in a different account</summary>
+            <p>Many phones have more than one Gmail. Tap your profile picture in Gmail (top right) and switch to the email you used in your reply.</p>
+          </details>
+          <details class="gh-cause">
+            <summary><span>6</span>Still nothing?</summary>
+            <p>Don’t worry. At the entrance, tell the SSC officer your full name. They can find you on the guest list and check you in.</p>
+          </details>
         </div>
-        <p class="form-error" id="statusError" role="alert" hidden></p>
-        <button class="primary-btn full" type="submit" id="statusBtn">Check status</button>
-      </form>
-      <div id="statusResult" aria-live="polite"></div>
+      </section>
       <p class="status-back"><a href="./">← Back to the invitation</a></p>
     </main>
     <p class="footer-mark">Learn · Share · Serve · Create</p>
