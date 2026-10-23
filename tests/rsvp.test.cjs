@@ -543,3 +543,21 @@ test('walk-in guests: the President adds a paid guest, the ticket is emailed and
   assert.equal(b.faculty.rows[5][b.faculty.rows[4].indexOf('Contribution')], 400);
   assert.equal(b.locked, false);
 });
+
+test('after check-out closes, late leavers can still check out and are marked late', () => {
+  const b = backend();
+  b.props.PH26_ATTENDANCE_SCHEDULE_2026_10_23 = JSON.stringify({ checkinOpens: '12:00', checkinCloses: '13:30', checkoutOpens: '12:30', checkoutCloses: '13:00' });
+  const id = b.save(reply('student', { fullName: 'Late Leaver', email: 'l@x.com' }));
+  b.students.rows[5][b.students.rows[4].indexOf('Payment')] = 'Paid ✓';
+  const ana = { user: 'ana', pass: 'pw-ana' };
+  assert.equal(b.checkin({ ...ana, ref: id }).result, 'admitted');
+  const r = b.checkout({ ...ana, ref: id });
+  assert.equal(r.result, 'departed', JSON.stringify(r));
+  assert.equal(r.late, true); assert.match(r.message, /LATE/);
+  const log = b.sheets['Attendance · Students'];
+  const row = log.rows.find((x) => x && x[1] === 'Late Leaver');
+  assert.equal(row[log.rows[4].indexOf('Status')], 'Checked out (late)');
+  const u = b.undo({ ...ana, ref: id, what: 'checkout' });
+  assert.equal(u.ok, true, JSON.stringify(u));
+  assert.equal(row[log.rows[4].indexOf('Status')], 'Present', 'a late check-out can be undone');
+});

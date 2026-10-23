@@ -16,7 +16,7 @@
   let mode = 'checkin', windowStatus = null, checkoutEnabled = false;
   let presenceSupported = false, heartbeatBusy = false, onBreak = false, lastKind = '';
   let qrGoneAt = 0;
-  const allowed = (m) => !checkoutEnabled || !!(windowStatus && (m === 'checkout' ? windowStatus.checkoutOpen : windowStatus.checkinOpen));
+  const allowed = (m) => !checkoutEnabled || !!(windowStatus && (m === 'checkout' ? (windowStatus.checkoutOpen || windowStatus.checkoutLate) : windowStatus.checkinOpen));
   function switchMode(m) {
     if (!allowed(m) || (m === 'checkout' && !checkoutEnabled)) return;
     mode = m; lastText = ''; lastAt = 0; qrGoneAt = 0;
@@ -30,8 +30,9 @@
     windowStatus = w; checkoutEnabled = true;
     $('attendanceModes').hidden = false;
     $('chooseCheckin').disabled = !w.checkinOpen;
-    $('chooseCheckout').disabled = !w.checkoutOpen;
-    $('attendanceWindow').textContent = w.checkoutOpen
+    $('chooseCheckout').disabled = !(w.checkoutOpen || w.checkoutLate);
+    $('attendanceWindow').textContent = w.checkoutLate && !w.checkoutOpen ? 'Check-out closed · late check-outs are still allowed and marked LATE'
+      : w.checkoutOpen
       ? (w.checkinOpen ? 'Both modes open · Check-in closes ' + w.checkinCloses + ' PH time' : 'Check-out open · Check-in closed')
       : (w.checkinOpen ? 'Check-in open · Check-out starts ' + w.checkoutOpens + ' PH time' :
         'Check-in ' + w.checkinOpens + '–' + w.checkinCloses + ' · Check-out ' + w.checkoutOpens + '–' + w.checkoutCloses + ' (PH time)');
