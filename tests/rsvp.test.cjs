@@ -562,7 +562,7 @@ test('after check-out closes, late leavers can still check out and are marked la
   assert.equal(row[log.rows[4].indexOf('Status')], 'Present', 'a late check-out can be undone');
 });
 
-test('a guest who never checked in can still check out, marked absent; undo voids it', () => {
+test('a guest who never checked in can still check out, marked "no check-in"; undo voids it', () => {
   const b = backend();
   b.props.PH26_ATTENDANCE_SCHEDULE_2026_10_23 = JSON.stringify({ checkinOpens: '12:00', checkinCloses: '17:00', checkoutOpens: '13:00', checkoutCloses: '17:30' });
   const id = b.save(reply('student', { fullName: 'No Scan', email: 'n@x.com' }));
@@ -570,10 +570,10 @@ test('a guest who never checked in can still check out, marked absent; undo void
   assert.equal(b.checkout({ ...ana, ref: id }).result, 'unpaid', 'unpaid tickets are refused');
   b.students.rows[5][b.students.rows[4].indexOf('Payment')] = 'Paid ✓';
   const r = b.checkout({ ...ana, ref: id });
-  assert.equal(r.result, 'departed', JSON.stringify(r)); assert.equal(r.absent, true); assert.match(r.message, /ABSENT/);
+  assert.equal(r.result, 'departed', JSON.stringify(r)); assert.equal(r.absent, true); assert.match(r.message, /NO CHECK-IN/);
   const log = b.sheets['Attendance · Students'], h = log.rows[4];
   const row = log.rows.find((x) => x && x[1] === 'No Scan');
-  assert.equal(row[h.indexOf('Status')], 'Checked out (absent)');
+  assert.equal(row[h.indexOf('Status')], 'Checked out (no check-in)');
   assert.equal(row[h.indexOf('Time in')], 'No check-in');
   assert.equal(b.students.rows[5][b.students.rows[4].indexOf('Checked in')] || '', '');
   assert.equal(b.checkout({ ...ana, ref: id }).result, 'already_out');

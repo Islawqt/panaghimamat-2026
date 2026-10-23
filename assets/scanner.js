@@ -379,7 +379,7 @@
       const btn = document.createElement('button'); btn.type = 'button';
       // Not arrived → Check in. Inside → Check out (check-out mode) or Undo. Checked out → Undo check-out.
       const act = g.checkedOut ? 'undoOut' : mode === 'checkout' ? 'checkout' : !g.checkedIn ? 'checkin' : 'undoIn';
-      const label = { checkin: 'Check in', checkout: g.checkedIn ? 'Check out' : 'Out · absent', undoIn: 'Undo', undoOut: 'Undo out' }[act];
+      const label = { checkin: 'Check in', checkout: g.checkedIn ? 'Check out' : 'Out · no check-in', undoIn: 'Undo', undoOut: 'Undo out' }[act];
       btn.textContent = label;
       btn.disabled = (act === 'checkin' || act === 'checkout') && !allowed(act);
       if (act === 'checkin' || act === 'checkout') btn.className = 'go';
