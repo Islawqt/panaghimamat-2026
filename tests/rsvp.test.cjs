@@ -411,10 +411,11 @@ test('officers sign in with accounts from the Officers tab; attendance tabs log 
   assert.equal(b.officer({ user: 'ana', pass: 'pw-ben' }).ok, false);
   assert.equal(b.officer({ user: 'zoe', pass: '' }).ok, false);
   b.sheets.Officers.rows[7] = ['Cara', 'cara', 'pw-cara']; b.sheets.Officers.rows[8] = ['Dan', 'dan', 'pw-dan'];
-  b.sheets.Officers.rows[9] = ['Eve', 'eve', 'pw-eve']; b.sheets.Officers.rows[10] = ['Sixth', 'sixth', 'pw-6'];
+  b.sheets.Officers.rows[9] = ['Eve', 'eve', 'pw-eve']; b.sheets.Officers.rows[10] = ['Sixth', 'sixth', 'pw-6']; b.sheets.Officers.rows[15] = ['Eleventh', 'eleven', 'pw-11'];
   assert.equal(b.officer({ user: 'dan', pass: 'pw-dan' }).ok, true);
   assert.equal(b.officer({ user: 'eve', pass: 'pw-eve' }).ok, true, 'the 5th officer can sign in');
-  assert.equal(b.officer({ user: 'sixth', pass: 'pw-6' }).ok, false, 'only 5 officers count');
+  assert.equal(b.officer({ user: 'sixth', pass: 'pw-6' }).ok, true, 'a 6th officer can sign in');
+  assert.equal(b.officer({ user: 'eleven', pass: 'pw-11' }).ok, false, 'only 10 officers count');
   for (let i = 0; i < 8; i++) b.officer({ user: 'ben', pass: 'guess' + i });
   assert.match(b.officer({ user: 'ben', pass: 'pw-ben' }).message, /Too many/);
   assert.equal(b.officer({ user: 'ana', pass: 'pw-ana' }).ok, true, 'one locked officer does not lock the others');
